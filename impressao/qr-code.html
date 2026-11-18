@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>QR code do apontamento - Buy Off</title>
+<!-- Gera o QR code do formulário para imprimir e colar nas máquinas.
+     O QR é desenhado aqui no navegador: a chave digitada não é enviada a nenhum site.
+     Biblioteca: qrcode.min.js (nesta mesma pasta). -->
+<style>
+@page { size: A4; margin: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: #fff; color: #111; font-family: Inter, Arial, sans-serif; }
+.painel { max-width: 640px; margin: 24px auto; padding: 0 16px; }
+.painel h1 { font-size: 22px; margin-bottom: 6px; }
+.painel p { font-size: 14px; line-height: 1.45; color: #333; margin-bottom: 14px; }
+.painel label { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 4px; }
+.painel input, .painel select { width: 100%; font: inherit; font-size: 15px; padding: 10px; border: 1px solid #999; border-radius: 6px; }
+.botoes { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+.botoes button { font: inherit; font-size: 15px; font-weight: 600; padding: 10px 16px; border-radius: 6px; border: 1px solid #111; background: #111; color: #fff; cursor: pointer; }
+.botoes button.sec { background: #fff; color: #111; }
+.msg { margin-top: 12px; font-size: 14px; min-height: 1.4em; }
+.msg.erro { color: #b00020; }
+.aviso { background: #fff6d6; border: 1px solid #e0c200; border-radius: 6px; padding: 10px 12px; font-size: 13px; }
+#folhas { margin: 24px auto; }
+.page { width: 210mm; height: 297mm; margin: 0 auto 12px; padding: 10mm; display: grid; gap: 8mm; outline: 1px dashed #bbb; }
+.page.n1 { grid-template: 1fr / 1fr; }
+.page.n2 { grid-template: 1fr 1fr / 1fr; }
+.page.n4 { grid-template: 1fr 1fr / 1fr 1fr; }
+.etq { border: .5mm solid #111; border-radius: 4mm; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6mm; text-align: center; overflow: hidden; }
+.etq .kicker { font-size: 10pt; font-weight: 600; letter-spacing: .22em; color: #333; }
+.etq h2 { font-weight: 800; line-height: 1.1; margin: 1.5mm 0 4mm; }
+.etq .qr { aspect-ratio: 1; }
+.etq .qr svg { width: 100%; height: 100%; display: block; }
+.etq .inst { color: #222; line-height: 1.35; margin-top: 4mm; }
+.page.n1 h2 { font-size: 34pt; } .page.n1 .qr { width: 150mm; } .page.n1 .inst { font-size: 15pt; }
+.page.n2 h2 { font-size: 22pt; } .page.n2 .qr { width: 88mm; }  .page.n2 .inst { font-size: 11pt; }
+.page.n4 h2 { font-size: 16pt; } .page.n4 .qr { width: 66mm; }  .page.n4 .inst { font-size: 9pt; }
+@media print {
+  .painel { display: none; }
+  #folhas { margin: 0; }
+  .page { margin: 0; outline: none; page-break-after: always; break-after: page; }
+}
+</style></head>
+<body>
+<div class="painel">
+  <h1>QR code do apontamento</h1>
+  <p>Cole a <b>CHAVE_LANCAMENTO</b> (Apps Script &gt; <code>mostrarChaves</code>), escolha quantos QR por folha e clique em <b>Gerar</b>.
+     Depois, <b>Imprimir</b> (folha A4, margens: nenhuma).</p>
+  <p class="aviso">O QR é desenhado aqui mesmo, no navegador. A chave não é enviada a nenhum site e não fica salva.
+     Mesmo assim, guarde as folhas impressas: quem tiver o QR consegue lançar.</p>
+  <form id="f">
+    <label for="chave">Chave de lançamento</label>
+    <input id="chave" type="password" autocomplete="off" spellcheck="false" required>
+    <label for="titulo">Texto em cima do QR</label>
+    <input id="titulo" value="Apontamento Buy Off" maxlength="40">
+    <label for="qtd">QR codes por folha</label>
+    <select id="qtd"><option value="1">1 (grande)</option><option value="2">2</option><option value="4" selected>4</option></select>
+    <label for="folhas-n">Quantidade de folhas</label>
+    <input id="folhas-n" type="number" min="1" max="20" value="1">
+    <div class="botoes">
+      <button type="submit">Gerar</button>
+      <button type="button" class="sec" id="imprimir" disabled>Imprimir</button>
+    </div>
+    <div class="msg" id="msg" role="status"></div>
+  </form>
+</div>
+<div id="folhas"></div>
+<script src="qrcode.min.js"></script>
+<script>
+(function () {
+  // Endereço do formulário na conta da empresa (o mesmo da aba Controle > Link do QR code).
+  var BASE = 'https://qualidadeornare10-oss.github.io/apontamento-byoff/';
+  var $ = function (id) { return document.getElementById(id); };
+  function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt) e.textContent = txt; return e; }
+
+  $('f').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var k = $('chave').value.trim(), msg = $('msg'), out = $('folhas');
+    out.textContent = ''; $('imprimir').disabled = true; msg.className = 'msg';
+    if (!/^[A-Za-z0-9]{16,64}$/.test(k)) { msg.className = 'msg erro'; msg.textContent = 'Chave em formato inválido (só letras e números, 16 a 64 caracteres).'; return; }
+    var url = BASE + '#&k=' + encodeURIComponent(k);
+    var qr = qrcode(0, 'M'); qr.addData(url); qr.make();
+    var svg = qr.createSvgTag({ cellSize: 4, margin: 4, scalable: true });
+    var n = +$('qtd').value, folhas = Math.min(20, Math.max(1, Math.floor(+$('folhas-n').value) || 1));
+    var titulo = $('titulo').value.trim() || 'Apontamento Buy Off';
+    for (var p = 0; p < folhas; p++) {
+      var page = el('div', 'page n' + n);
+      for (var i = 0; i < n; i++) {
+        var etq = el('div', 'etq');
+        etq.appendChild(el('div', 'kicker', 'BUY OFF · PINTURA'));
+        etq.appendChild(el('h2', null, titulo));
+        var box = el('div', 'qr'); box.innerHTML = svg; etq.appendChild(box);
+        var inst = el('div', 'inst');
+        inst.appendChild(document.createTextNode('Aponte a câmera do celular para o código'));
+        inst.appendChild(document.createElement('br'));
+        inst.appendChild(document.createTextNode('e lance a produção e os defeitos.'));
+        etq.appendChild(inst);
+        page.appendChild(etq);
+      }
+      out.appendChild(page);
+    }
+    $('chave').value = '';
+    $('imprimir').disabled = false;
+    msg.textContent = 'Pronto: ' + (n * folhas) + ' QR code(s). Teste um com o celular antes de imprimir tudo.';
+  });
+  $('imprimir').addEventListener('click', function () { window.print(); });
+})();
+</script>
+</body></html>
