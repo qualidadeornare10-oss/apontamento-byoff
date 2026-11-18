@@ -3,7 +3,7 @@
 
   // ======================= CONFIGURAÇÃO =======================
   // Cole aqui a URL do App da Web do Apps Script (termina em /exec).
-  var ENDPOINT = 'https://script.google.com/macros/s/AKfycbxq6a3mYLYgveTELreicTyj7dkFtLGvx0SR10SFsZ_sDPQ1gcwbXLM1C6zkBN9RkNPK/exec';
+  var ENDPOINT = 'https://script.google.com/macros/s/AKfycbxtB7gWnI8zbeGMkJGh0ulFKONBBezkV8tbYqJUIl1CXhkCbEQ__VDBfY2SE1c4ru8/exec';
   // ============================================================
 
   var LS_LANC = 'buyoff_chave_lancamento'; // localStorage: fica no aparelho do setor
