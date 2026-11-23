@@ -11,18 +11,18 @@ var TZ = 'America/Sao_Paulo';
 // Mesmos ids e nomes do app.js / Code.gs. "curto" = nome nas mensagens; "apelidos" = como o pessoal escreve.
 var SETORES = [
   { id: 'tagliabue', nome: 'TAGLIABUE', curto: 'Tagliabue', apelidos: ['tagliabue', 'taglia'] },
-  { id: 'ibotic', nome: 'IBOTIC', curto: 'Ibotic', apelidos: ['ibotic'] },
+  { id: 'ibotic', nome: 'IBOTIC', curto: 'IBOTIC', apelidos: ['ibotic'] },
   { id: 'polimento', nome: 'POLIMENTO', curto: 'Polimento', apelidos: ['polimento'] },
   { id: 'madeirado-uv', nome: 'MADEIRADO UV', curto: 'Madeirado UV', apelidos: ['madeirado uv', 'madeirado-uv', 'uv'] },
   { id: 'madeirado-colorido', nome: 'MADEIRADO COLORIDO', curto: 'Madeirado Colorido', apelidos: ['madeirado colorido', 'madeirado-colorido', 'colorido'] }
 ];
 
 // Menu numerado: o que cada número pede (o mesmo comando que dá para digitar).
-// null = pergunta antes qual semana (esta, a passada ou outra que o usuário digita).
+// [texto, comando, pergunta o setor antes]. Comando null = pergunta antes qual semana.
 var MENU = [
-  ['Resumo de hoje', 'hoje'],
-  ['Resumo semanal', null],
-  ['Quem ainda não lançou', 'pendentes']
+  ['Resumo de hoje', 'hoje', true],
+  ['Resumo semanal', null, true],
+  ['Quem ainda não lançou', 'pendentes', false]
 ];
 var SEMANAS_ATRAS = 52;     // até quantas semanas para trás dá para escolher
 var ETAPA_MINUTOS = 10;     // quanto tempo o bot espera a resposta de uma pergunta
@@ -160,24 +160,58 @@ function semanaDigitada(texto, hoje) {
 }
 
 /**
- * etapa = o que o bot perguntou por último nesta conversa:
+ * Resposta a "Qual setor?": "0" ou "todos" = todos; "1 3", "1,3", "1 e 3" ou "13" = vários.
+ * Retorna { setores } (null = todos), { erro: true } ou null quando a mensagem não é resposta.
+ */
+function setoresDigitados(so) {
+  if (/^todos?$/.test(so)) return { setores: null };
+  if (!/^[\d\s,;+e\/.-]+$/.test(so)) return null;
+  var nums = [];
+  so.replace(/\be\b/g, ' ').split(/[^0-9]+/).filter(Boolean).forEach(function (d) {
+    d.split('').forEach(function (x) { nums.push(+x); }); // "13" = 1 e 3 (só há setores de 1 a 5)
+  });
+  if (!nums.length) return null;
+  if (nums.indexOf(0) >= 0) return { setores: null };
+  if (nums.some(function (x) { return x < 1 || x > SETORES.length; })) return { erro: true };
+  var ids = SETORES.filter(function (st, i) { return nums.indexOf(i + 1) >= 0; }).map(function (st) { return st.id; });
+  return { setores: ids.length === SETORES.length ? null : ids };
+}
+
+function perguntarSetor(pendente, naoEntendi) {
+  return naoEntendi ? { tipo: 'escolherSetor', pendente: pendente, naoEntendi: true } : { tipo: 'escolherSetor', pendente: pendente };
+}
+
+/**
+ * etapa = o que o bot perguntou por último nesta conversa ({ qual, pendente } ou só o texto de qual):
  *   'semana'      → "Qual semana?" (1 esta, 2 a passada, 3 escolher outra)
  *   'qualSemana'  → "Digite a semana" (número da semana ou uma data)
+ *   'setor'       → "Qual setor?" (pendente = o relatório que vai sair depois da resposta)
  * Com etapa, a mensagem responde à pergunta; o que não for resposta segue o caminho normal.
  */
 function interpretar(texto, hoje, etapa) {
-  // Número ("3", "/3", "3️⃣"); 0 = menu.
+  var qual = typeof etapa === 'string' ? etapa : (etapa && etapa.qual) || null;
+  // Número ("3", "/3", "3️⃣"); 0 = menu (na pergunta do setor, 0 = todos).
   var so = normaliza(texto).replace(/[️⃣]/g, '').replace(/^[\/!#.]+/, '').replace(/[.)!]+$/, '').trim();
+  if (qual === 'setor' && etapa.pendente) {
+    var rs = setoresDigitados(so);
+    if (rs && rs.erro) return perguntarSetor(etapa.pendente, true);
+    if (rs) { var c = JSON.parse(JSON.stringify(etapa.pendente)); c.setores = rs.setores; c.setor = null; return c; }
+  }
   if (so === '0') return { tipo: 'ajuda' };
-  if (etapa === 'qualSemana') { var sd = semanaDigitada(so, hoje); if (sd) return sd; }
+  if (qual === 'qualSemana') {
+    var sd = semanaDigitada(so, hoje);
+    if (sd) return sd.tipo === 'resumo' ? perguntarSetor(sd) : sd;
+  }
   if (/^\d{1,2}$/.test(so)) {
     var op = +so;
-    if (etapa === 'semana') {
-      if (op === 1 || op === 2) return cmdSemana(op - 1, hoje);
+    if (qual === 'semana') {
+      if (op === 1 || op === 2) return perguntarSetor(cmdSemana(op - 1, hoje));
       return op === 3 ? { tipo: 'pedirSemana' } : { tipo: 'escolherSemana', naoEntendi: true };
     }
-    if (!MENU[op - 1]) return { tipo: 'ajuda', naoEntendi: true };
-    return MENU[op - 1][1] ? interpretar(MENU[op - 1][1], hoje) : { tipo: 'escolherSemana' };
+    var it = MENU[op - 1];
+    if (!it) return { tipo: 'ajuda', naoEntendi: true };
+    if (!it[1]) return { tipo: 'escolherSemana' };
+    return it[2] ? perguntarSetor(interpretar(it[1], hoje)) : interpretar(it[1], hoje);
   }
 
   var s = ' ' + normaliza(texto).replace(/^[\/!#.]+/, '') + ' ';
@@ -258,9 +292,14 @@ function interpretar(texto, hoje, etapa) {
 // Cálculo
 // ---------------------------------------------------------------------------
 
+/** Setores escolhidos: lista de ids, ou null = todos. (cmd.setor vem do comando digitado, cmd.setores do menu.) */
+function sel(cmd) { return cmd.setores && cmd.setores.length ? cmd.setores : (cmd.setor ? [cmd.setor] : null); }
+function unico(cmd) { var s = sel(cmd); return s && s.length === 1 ? s[0] : null; }
+
 function filtrar(registros, cmd) {
+  var s = sel(cmd);
   return (registros || []).filter(function (r) {
-    return r && r.data >= cmd.ini && r.data <= cmd.fim && (!cmd.setor || r.setor === cmd.setor);
+    return r && r.data >= cmd.ini && r.data <= cmd.fim && (!s || s.indexOf(r.setor) >= 0);
   });
 }
 
@@ -294,31 +333,24 @@ function topDefeitos(defs, n) {
 // ---------------------------------------------------------------------------
 
 function num(n) { return String(Math.round(n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
-function pct(x) { return x === null || x === undefined ? '-' : (x * 100).toFixed(1).replace('.', ',') + '%'; }
 function nomeSetor(id) { for (var i = 0; i < SETORES.length; i++) if (SETORES[i].id === id) return SETORES[i].nome; return id; }
 function curtoSetor(id) { for (var i = 0; i < SETORES.length; i++) if (SETORES[i].id === id) return SETORES[i].curto; return id; }
 function descDefeito(c) { return DEFEITOS[c] ? c + ' ' + DEFEITOS[c] : c; }
 function lista(a) { return a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' e ' + a[a.length - 1]; }
 function maiuscula(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
-function linhaProducao(a) {
-  var p = [];
-  if (a.pecas || !a.pilhas) p.push(num(a.pecas) + ' pç');
-  if (a.pilhas) p.push(num(a.pilhas) + (a.pilhas === 1 ? ' pilha' : ' pilhas'));
-  p.push(num(a.ruins) + ' ruins');
-  return p.join(' · ');
-}
+function pecasRuins(n) { return num(n) + (n === 1 ? ' peça ruim' : ' peças ruins'); }
+function lancamentos(n) { return n + (n === 1 ? ' lançamento' : ' lançamentos'); }
+/** "22 ruins · 3 lançamentos": o que vai nas linhas de setor, turno e dia. */
+function ruinsLanc(a) { return num(a.ruins) + (a.ruins === 1 ? ' ruim' : ' ruins') + ' · ' + lancamentos(a.n); }
 
-/** "1,8% · 1.200 pç · 22 ruins" (o refugo só aparece quando há produção em peças). */
-function numerosLinha(a, negrito) {
-  var r = a.refugo !== null ? (negrito ? '*' + pct(a.refugo) + '*' : pct(a.refugo)) + ' · ' : '';
-  return r + linhaProducao(a);
-}
+/** "Resumo da semana", "Defeitos de ontem" (sem os setores). */
+function tituloBase(cmd) { return (cmd.tipo === 'defeitos' ? 'Defeitos' : 'Resumo') + (cmd.quando ? ' ' + cmd.quando : ''); }
 
-/** "Resumo da semana", "Defeitos de ontem", "Tagliabue · Resumo de hoje". */
+/** "Resumo da semana", "Tagliabue · Resumo de hoje", "Tagliabue e Polimento · Resumo de hoje". */
 function tituloDe(cmd) {
-  var t = (cmd.tipo === 'defeitos' ? 'Defeitos' : 'Resumo') + (cmd.quando ? ' ' + cmd.quando : '');
-  return cmd.setor ? curtoSetor(cmd.setor) + ' · ' + t : t;
+  var s = sel(cmd);
+  return s ? lista(s.map(curtoSetor)) + ' · ' + tituloBase(cmd) : tituloBase(cmd);
 }
 
 function cabecalho(cmd, emoji, titulo) {
@@ -344,9 +376,10 @@ function faltando(registros, dia) {
   return out;
 }
 
-/** Linhas "Noite: Tagliabue, Ibotic e Madeirado UV" agrupando os setores pelos turnos que faltam. */
+/** Linhas "Noite: Tagliabue, IBOTIC e Madeirado UV" agrupando os setores pelos turnos que faltam. */
 function linhasFaltando(registros, cmd) {
-  var f = faltando(registros, cmd.fim).filter(function (x) { return !cmd.setor || x.setor === cmd.setor; });
+  var s = sel(cmd);
+  var f = faltando(registros, cmd.fim).filter(function (x) { return !s || s.indexOf(x.setor) >= 0; });
   var grupos = {}, ordem = [];
   f.forEach(function (x) {
     var k = maiuscula(x.turnos.join(' e ').toLowerCase());
@@ -363,62 +396,60 @@ function blocoFaltando(registros, cmd, hoje) {
   return ['', cmd.fim === hoje ? '⏳ *Ainda sem lançamento*' : '⚠️ *Sem lançamento*'].concat(l);
 }
 
+/**
+ * Resumo em texto: só peças ruins e lançamentos (a produção vai na foto; refugo % não entra),
+ * por setor (ou, com um setor só, por turno e por dia) e os principais defeitos.
+ */
 function relatorioResumo(cmd, registros, hoje) {
-  var regs = filtrar(registros, cmd);
-  var total = agrega(regs);
+  var regs = filtrar(registros, cmd), total = agrega(regs), s = sel(cmd), um = unico(cmd);
   var L = [cabecalho(cmd, '📊', tituloDe(cmd)), ''];
 
   if (!regs.length) {
     L.push('Nenhum lançamento ' + (cmd.ini === cmd.fim ? 'neste dia.' : 'no período.'));
   } else {
-    // Destaque: refugo em cima, depois produção.
-    if (total.refugo !== null) L.push('*' + pct(total.refugo) + '* de refugo');
-    L.push(linhaProducao(total) + ' · ' + total.n + (total.n === 1 ? ' lançamento' : ' lançamentos'));
-
-    if (!cmd.setor) {
+    L.push('*' + pecasRuins(total.ruins) + '* · ' + lancamentos(total.n));
+    if (!um) {
       L.push('', '*Setores*');
-      SETORES.forEach(function (st) {
+      SETORES.filter(function (st) { return !s || s.indexOf(st.id) >= 0; }).forEach(function (st) {
         var rs = regs.filter(function (r) { return r.setor === st.id; });
-        L.push('• ' + st.curto + ' · ' + (rs.length ? numerosLinha(agrega(rs), true) : '_sem lançamento_'));
+        L.push('• ' + st.curto + ' · ' + (rs.length ? ruinsLanc(agrega(rs)) : '_sem lançamento_'));
       });
     } else {
-      var rs = regs; // já filtrado pelo setor
       L.push('', '*Turnos*');
       ['Dia', 'Noite'].forEach(function (t) {
-        var at = agrega(rs.filter(function (r) { return r.turno === t; }));
-        L.push((t === 'Dia' ? '☀️ ' : '🌙 ') + t + ' · ' + (at.n ? numerosLinha(at, true) : '_sem lançamento_'));
+        var at = agrega(regs.filter(function (r) { return r.turno === t; }));
+        L.push((t === 'Dia' ? '☀️ ' : '🌙 ') + t + ' · ' + (at.n ? ruinsLanc(at) : '_sem lançamento_'));
       });
       if (cmd.ini !== cmd.fim) {
         L.push('', '*Por dia*');
         for (var d = cmd.ini; d <= cmd.fim; d = somaDias(d, 1)) {
-          var ad = agrega(rs.filter(function (r) { return r.data === d; }));
-          if (ad.n) L.push(DIAS_SEM[diaDaSemana(d)] + ' ' + brCurto(d) + ' · ' + numerosLinha(ad));
+          var ad = agrega(regs.filter(function (r) { return r.data === d; }));
+          if (ad.n) L.push(DIAS_SEM[diaDaSemana(d)] + ' ' + brCurto(d) + ' · ' + ruinsLanc(ad));
         }
       }
     }
-    L = L.concat(blocoDefeitos(total.defeitos, cmd.setor ? 5 : 3));
+    L = L.concat(blocoDefeitos(total.defeitos, um ? 5 : 3));
   }
 
-  if (!cmd.setor) L = L.concat(blocoFaltando(registros, cmd, hoje)); // no setor, os turnos já mostram
+  if (!um) L = L.concat(blocoFaltando(registros, cmd, hoje)); // com um setor só, os turnos já mostram
   return L.join('\n');
 }
 
 function relatorioDefeitos(cmd, registros) {
-  var regs = filtrar(registros, cmd);
-  var a = agrega(regs);
+  var regs = filtrar(registros, cmd), a = agrega(regs), s = sel(cmd);
   var L = [cabecalho(cmd, '🔎', tituloDe(cmd)), ''];
   var top = topDefeitos(a.defeitos, 8);
   if (!top.length) {
     L.push(regs.length ? 'Nenhum defeito lançado. 👏' : 'Nenhum lançamento ' + (cmd.ini === cmd.fim ? 'neste dia.' : 'no período.'));
     return L.join('\n');
   }
-  L.push('*' + num(a.ruins) + ' peças ruins*' + (a.refugo !== null ? ' · ' + pct(a.refugo) + ' de refugo' : ''), '');
+  L.push('*' + pecasRuins(a.ruins) + '* · ' + lancamentos(a.n), '');
   top.forEach(function (d, i) {
     L.push((i + 1) + '. ' + descDefeito(d[0]) + ' · *' + num(d[1]) + '*' + (a.ruins ? ' (' + Math.round(100 * d[1] / a.ruins) + '%)' : ''));
   });
-  if (!cmd.setor) {
+  if (!unico(cmd)) {
     L.push('', '*Por setor*');
-    SETORES.forEach(function (st) {
+    SETORES.filter(function (st) { return !s || s.indexOf(st.id) >= 0; }).forEach(function (st) {
       var as = agrega(regs.filter(function (r) { return r.setor === st.id; }));
       var t1 = topDefeitos(as.defeitos, 1)[0];
       if (as.ruins) L.push('• ' + st.curto + ' · ' + num(as.ruins) + ' ruins' + (t1 ? ' · mais comum ' + t1[0] : ''));
@@ -490,6 +521,16 @@ function textoPedirSemana(erro, grupo, hoje) {
     '_Esta é a semana ' + semanaIso(hoje) + '_ · *' + b + '0* volta ao menu';
 }
 
+/** "Qual setor?" antes de gerar o relatório (pendente = o relatório já escolhido). */
+function textoEscolherSetor(pendente, naoEntendi, grupo) {
+  var op = SETORES.map(function (st, i) { return EMOJI_NUM[i + 1] + ' ' + st.curto; });
+  var b = grupo ? '/' : '';
+  return (naoEntendi ? 'Não entendi 🤔\n\n' : '') +
+    '🏭 *Qual setor?*\n_' + tituloBase(pendente) + ' · ' + pendente.rotulo + '_\n\n' +
+    EMOJI_NUM[0] + ' Todos\n' + op.slice(0, 3).join('   ') + '\n' + op.slice(3).join('   ') + '\n\n' +
+    'Pode escolher mais de um (ex.: *' + b + '1 3*)\n*' + b + 'menu* volta ao início';
+}
+
 function textoComandos() {
   return '⌨️ *Outros comandos*\n\n' +
     '*semana passada* · *mes* · *mes passado*\n' +
@@ -511,6 +552,7 @@ function responder(cmd, registros, hoje) {
   if (cmd.tipo === 'ajuda') return menu(cmd.naoEntendi, cmd.grupo === true);
   if (cmd.tipo === 'escolherSemana') return textoEscolherSemana(cmd.naoEntendi, cmd.grupo === true, hoje);
   if (cmd.tipo === 'pedirSemana') return textoPedirSemana(cmd.erro, cmd.grupo === true, hoje);
+  if (cmd.tipo === 'escolherSetor') return textoEscolherSetor(cmd.pendente, cmd.naoEntendi, cmd.grupo === true);
   if (cmd.tipo === 'aviso') return cmd.msg;
   var texto;
   if (cmd.tipo === 'erro') texto = '⚠️ ' + cmd.msg;
@@ -527,7 +569,7 @@ function responder(cmd, registros, hoje) {
 // ---------------------------------------------------------------------------
 
 var COR = { fundo: '#ffffff', texto: '#2C2C2A', sec: '#5F5E5A', fraco: '#888780', grade: '#E6E4DD',
-  cartao: '#F4F3EE', barra: '#378ADD', refugo: '#D85A30', defeito: '#7F77DD' };
+  cartao: '#F4F3EE', barra: '#378ADD', ruim: '#D85A30', defeito: '#7F77DD' };
 var LARG = 1080, MARGEM = 56;
 
 function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
@@ -539,7 +581,6 @@ function teto(v) {
   var p = Math.pow(10, Math.floor(Math.log(v) / Math.LN10)), f = v / p;
   return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p;
 }
-function pctCurto(x) { return String(Math.round(x * 1000) / 10).replace('.', ',') + '%'; }
 function numCurto(n) { return n >= 10000 ? String(Math.round(n / 100) / 10).replace('.', ',') + ' mil' : num(n); }
 function corta(s, max) { s = String(s); return s.length > max ? s.slice(0, max - 1).trim() + '…' : s; }
 
@@ -586,71 +627,50 @@ function serieTempo(regs, cmd) {
   return grupos;
 }
 
-/**
- * Colunas de produção embaixo e, numa faixa própria em cima, a linha de refugo %
- * (separadas para os números de uma não ficarem por cima dos da outra).
- */
+/** Rótulo do eixo: inteiro sem casas, fração com uma casa (eixo de 0 a 10 tem 2,5). */
+function eixo(v) { return v % 1 ? String(r1(v)).replace('.', ',') : numCurto(v); }
+
+/** Colunas de produção (pilhas ou peças) por dia ou por semana. */
 function svgTempo(x, y, w, h, grupos, pilhas) {
   var s = [], n = grupos.length;
   var vals = grupos.map(function (g) { return pilhas ? g.a.pilhas : g.a.pecas; });
-  var taxas = grupos.map(function (g) { return pilhas ? null : g.a.refugo; });
-  var temTaxa = taxas.some(function (t) { return t !== null; });
   var maxV = teto(Math.max.apply(null, vals.concat([0])));
-  var maxT = Math.max.apply(null, taxas.filter(function (t) { return t !== null; }).concat([0])) || 1;
-  var px = x + 80, pw = w - 100, ph = h - 64, base = y + ph;
-  var hb = temTaxa ? ph * 0.62 : ph;                 // altura máxima das colunas
-  var fTopo = y + 30, fBase = y + ph * 0.30;         // faixa da linha de refugo
+  var px = x + 80, pw = w - 100, ph = h - 64, base = y + ph, hb = ph - 34;
 
   for (var i = 0; i <= 4; i++) {
     var yy = base - hb * i / 4;
     s.push(svgLinha(px, yy, px + pw, yy, i ? COR.grade : COR.fraco, i ? 1 : 1.5));
-    s.push(svgTexto(px - 12, yy + 6, numCurto(maxV * i / 4), { t: 17, cor: COR.sec, ancora: 'end' }));
-  }
-  if (temTaxa) {
-    s.push('<line x1="' + px + '" y1="' + r1(fBase) + '" x2="' + (px + pw) + '" y2="' + r1(fBase) +
-      '" stroke="' + COR.grade + '" stroke-width="1" stroke-dasharray="6 6"/>');
-    s.push(svgTexto(px - 12, (fTopo + fBase) / 2 + 6, 'refugo', { t: 17, cor: COR.refugo, ancora: 'end' }));
+    s.push(svgTexto(px - 12, yy + 6, eixo(maxV * i / 4), { t: 17, cor: COR.sec, ancora: 'end' }));
   }
 
-  var slot = pw / n, bw = Math.min(slot * 0.62, 96), passo = n > 20 ? 2 : 1, pontos = [];
-  var rotulaTaxa = function (i) { return n <= 12 || taxas[i] === maxT; };
+  var slot = pw / n, bw = Math.min(slot * 0.62, 96), passo = n > 20 ? 2 : 1, tv = n > 8 ? 16 : 18;
   grupos.forEach(function (g, i) {
     var cx = px + slot * i + slot / 2, bh = hb * vals[i] / maxV;
     s.push(svgRet(cx - bw / 2, base - bh, bw, bh, COR.barra, n > 20 ? 2 : 4));
-    if (n <= 8 && vals[i] > 0) {
-      s.push(bh > 40 ? svgTexto(cx, base - bh + 28, numCurto(vals[i]), { t: 18, cor: '#ffffff', ancora: 'middle', peso: 700 })
-                     : svgTexto(cx, base - bh - 10, numCurto(vals[i]), { t: 18, cor: COR.sec, ancora: 'middle' }));
+    if (n <= 12 && vals[i] > 0) {
+      s.push(bh > 40 ? svgTexto(cx, base - bh + 28, numCurto(vals[i]), { t: tv, cor: '#ffffff', ancora: 'middle', peso: 700 })
+                     : svgTexto(cx, base - bh - 10, numCurto(vals[i]), { t: tv, cor: COR.sec, ancora: 'middle' }));
     }
     if (i % passo === 0) {
       s.push(svgTexto(cx, base + 28, g.rotulo, { t: n > 20 ? 16 : 19, cor: COR.texto, ancora: 'middle' }));
       if (g.rotulo2) s.push(svgTexto(cx, base + 52, g.rotulo2, { t: 16, cor: COR.sec, ancora: 'middle' }));
     }
-    if (taxas[i] !== null) pontos.push([cx, fBase - (fBase - fTopo) * taxas[i] / maxT, taxas[i], i]);
-  });
-
-  if (pontos.length > 1) {
-    s.push('<polyline fill="none" stroke="' + COR.refugo + '" stroke-width="3.5" stroke-linejoin="round" points="' +
-      pontos.map(function (p) { return r1(p[0]) + ',' + r1(p[1]); }).join(' ') + '"/>');
-  }
-  pontos.forEach(function (p) {
-    s.push('<circle cx="' + r1(p[0]) + '" cy="' + r1(p[1]) + '" r="' + (n > 20 ? 4.5 : 7) + '" fill="' + COR.refugo + '" stroke="#ffffff" stroke-width="2.5"/>');
-    if (rotulaTaxa(p[3])) s.push(svgTexto(p[0], p[1] - 14, pct(p[2]), { t: n > 8 ? 15 : 18, cor: COR.refugo, ancora: 'middle', peso: 700 }));
   });
   if (!vals.some(function (v) { return v > 0; })) {
-    s.push(svgTexto(px + pw / 2, y + ph / 2, 'Sem produção contada no período', { t: 22, cor: COR.sec, ancora: 'middle' }));
+    s.push(svgTexto(px + pw / 2, y + ph / 2, 'Sem produção lançada no período', { t: 22, cor: COR.sec, ancora: 'middle' }));
   }
   return s.join('');
 }
 
-/** Colunas simples com o valor em cima (refugo por setor ou por turno). */
+/** Colunas simples com o valor em cima (peças ruins por setor ou por turno). */
 function svgColunas(x, y, w, h, itens) {
   var s = [], n = itens.length, ph = h - 78, base = y + ph;
-  var maxV = teto(Math.max.apply(null, itens.map(function (it) { return it.valor || 0; }).concat([0])));
+  var maxV = Math.max.apply(null, itens.map(function (it) { return it.valor || 0; }).concat([1])); // a maior coluna ocupa a altura toda
   var slot = w / n, bw = Math.min(slot * 0.5, 130);
   s.push(svgLinha(x, base, x + w, base, COR.fraco, 1.5));
   itens.forEach(function (it, i) {
     var cx = x + slot * i + slot / 2, bh = it.valor ? (ph - 30) * it.valor / maxV : 0;
-    if (bh) s.push(svgRet(cx - bw / 2, base - bh, bw, bh, COR.refugo, 4));
+    if (bh) s.push(svgRet(cx - bw / 2, base - bh, bw, bh, COR.ruim, 4));
     s.push(svgTexto(cx, base - bh - 10, it.texto, { t: it.valor !== null ? 22 : 18, cor: it.valor !== null ? COR.texto : COR.fraco,
       ancora: 'middle', peso: it.valor !== null ? 700 : null }));
     it.rotulo.forEach(function (l, j) { s.push(svgTexto(cx, base + 28 + j * 22, l, { t: 18, ancora: 'middle', peso: j ? null : 700 })); });
@@ -669,7 +689,7 @@ function svgRanking(x, y, w, itens, total) {
     s.push(svgTexto(x + 70, yy + 30, corta(DEFEITOS[it[0]] || '', 30), { t: 20, cor: COR.sec }));
     var l = Math.max(4, bw * it[1] / max);
     s.push(svgRet(x + rotW, yy + 10, l, 30, COR.defeito, 4));
-    s.push(svgTexto(x + rotW + l + 12, yy + 32, num(it[1]) + (total ? ' · ' + pctCurto(it[1] / total) : ''), { t: 19, cor: COR.sec }));
+    s.push(svgTexto(x + rotW + l + 12, yy + 32, num(it[1]) + (total ? ' · ' + Math.round(100 * it[1] / total) + '%' : ''), { t: 19, cor: COR.sec }));
   });
   return { svg: s.join(''), altura: itens.length * linha };
 }
@@ -686,72 +706,75 @@ function nomeEmLinhas(nome) { var p = nome.split(' '); return p.length > 1 ? [p[
  * Painel com os gráficos de um relatório de período.
  * Retorna null quando não cabe gráfico (um dia só, ajuda, pendentes ou nada lançado),
  * ou { html, largura, altura, legenda } para o Gotenberg desenhar e o WAHA mandar como foto.
+ *
+ * Produção em pilhas, que é como quase todos os setores lançam. Só vira peças quando não há
+ * nenhuma pilha no que foi pedido (ex.: só a IBOTIC). As peças de quem conta em peças aparecem
+ * à parte no cartão ("+ 2.150 pç"), sem somar pilha com peça.
  */
 function graficoRelatorio(cmd, registros) {
   if (!cmd || (cmd.tipo !== 'resumo' && cmd.tipo !== 'defeitos') || cmd.ini === cmd.fim) return null;
   var regs = filtrar(registros, cmd);
   if (!regs.length) return null;
-  var total = agrega(regs), pilhas = !total.pecas && total.pilhas > 0;
-  var titulo = tituloDe(cmd);
-  var s = [], y = 0, W = LARG - 2 * MARGEM;
+  var total = agrega(regs), s = sel(cmd), um = unico(cmd);
+  var pilhas = total.pilhas > 0 || !total.pecas;
+  // Vários setores: o título fica curto e os setores vão na linha de baixo.
+  var titulo = s && !um ? tituloBase(cmd) : tituloDe(cmd);
+  var sub = cmd.rotulo + (s && !um ? ' · ' + lista(s.map(curtoSetor)) : '');
+  var out = [], y, W = LARG - 2 * MARGEM;
 
-  s.push(svgTexto(MARGEM, 88, titulo, { t: 44, peso: 700 }));
-  s.push(svgTexto(MARGEM, 132, cmd.rotulo, { t: 26, cor: COR.sec }));
+  out.push(svgTexto(MARGEM, 88, corta(titulo, 40), { t: 44, peso: 700 }));
+  out.push(svgTexto(MARGEM, 132, corta(sub, 72), { t: 26, cor: COR.sec }));
 
-  var cw = (W - 3 * 18) / 4;
-  s.push(svgCartao(MARGEM, 168, cw, 'Produção', pilhas ? num(total.pilhas) + ' pilhas' : num(total.pecas) + ' pç'));
-  s.push(svgCartao(MARGEM + (cw + 18), 168, cw, 'Peças ruins', num(total.ruins)));
-  s.push(svgCartao(MARGEM + 2 * (cw + 18), 168, cw, 'Refugo', pct(total.refugo), COR.refugo));
-  s.push(svgCartao(MARGEM + 3 * (cw + 18), 168, cw, 'Lançamentos', num(total.n)));
+  var cw = (W - 2 * 18) / 3, extra = pilhas && total.pecas ? ' · + ' + numCurto(total.pecas) + ' pç' : '';
+  out.push(svgCartao(MARGEM, 168, cw, 'Produção' + extra,
+    pilhas ? num(total.pilhas) + (total.pilhas === 1 ? ' pilha' : ' pilhas') : num(total.pecas) + ' pç'));
+  out.push(svgCartao(MARGEM + (cw + 18), 168, cw, 'Peças ruins', num(total.ruins), COR.ruim));
+  out.push(svgCartao(MARGEM + 2 * (cw + 18), 168, cw, 'Lançamentos', num(total.n)));
 
   var grupos = serieTempo(regs, cmd), porSemana = dias(cmd.ini, cmd.fim) > 35;
   y = 362;
-  s.push(svgSecao(y, 'Produção e refugo por ' + (porSemana ? 'semana' : 'dia'),
-    pilhas ? [[COR.barra, 'pilhas']] : [[COR.barra, 'peças'], [COR.refugo, 'refugo %', true]]));
-  s.push(svgTempo(MARGEM, y + 34, W, 380, grupos, pilhas));
+  out.push(svgSecao(y, 'Produção por ' + (porSemana ? 'semana' : 'dia'), [[COR.barra, pilhas ? 'pilhas' : 'peças']]));
+  out.push(svgTempo(MARGEM, y + 34, W, 380, grupos, pilhas));
   y += 34 + 380 + 64;
 
+  function item(a, rotulo) {
+    return { valor: a.n ? a.ruins : null, texto: a.n ? num(a.ruins) : 'sem lanç.', rotulo: rotulo, sub: a.n ? lancamentos(a.n) : '' };
+  }
   var itens, tituloB;
-  if (cmd.setor) {
-    tituloB = 'Refugo por turno';
-    itens = ['Dia', 'Noite'].map(function (t) {
-      var a = agrega(regs.filter(function (r) { return r.turno === t; }));
-      return { valor: a.refugo, texto: a.refugo !== null ? pct(a.refugo) : (a.n ? 'em pilhas' : 'sem lançamento'),
-        rotulo: [t], sub: a.pecas ? num(a.pecas) + ' pç' : (a.pilhas ? num(a.pilhas) + ' pilhas' : '') };
-    });
+  if (um) {
+    tituloB = 'Peças ruins por turno';
+    itens = ['Dia', 'Noite'].map(function (t) { return item(agrega(regs.filter(function (r) { return r.turno === t; })), [t]); });
   } else {
-    tituloB = 'Refugo por setor';
-    itens = SETORES.map(function (st) {
-      var a = agrega(regs.filter(function (r) { return r.setor === st.id; }));
-      return { valor: a.refugo, texto: a.refugo !== null ? pct(a.refugo) : (a.n ? 'em pilhas' : 'sem lanç.'),
-        rotulo: nomeEmLinhas(st.nome), sub: a.pecas ? num(a.pecas) + ' pç' : (a.pilhas ? num(a.pilhas) + ' pilhas' : '') };
+    tituloB = 'Peças ruins por setor';
+    itens = SETORES.filter(function (st) { return !s || s.indexOf(st.id) >= 0; }).map(function (st) {
+      return item(agrega(regs.filter(function (r) { return r.setor === st.id; })), nomeEmLinhas(st.nome));
     });
   }
-  s.push(svgSecao(y, tituloB));
-  s.push(svgColunas(MARGEM, y + 34, W, 290, itens));
+  out.push(svgSecao(y, tituloB));
+  out.push(svgColunas(MARGEM, y + 34, W, 290, itens));
   y += 34 + 290 + 60;
 
   var top = topDefeitos(total.defeitos, 6);
-  s.push(svgSecao(y, 'Principais defeitos' + (top.length ? ' (' + num(total.ruins) + ' peças ruins)' : '')));
+  out.push(svgSecao(y, 'Principais defeitos'));
   if (top.length) {
     var rk = svgRanking(MARGEM, y + 20, W, top, total.ruins);
-    s.push(rk.svg);
+    out.push(rk.svg);
     y += 20 + rk.altura;
   } else {
-    s.push(svgTexto(MARGEM, y + 56, 'Nenhum defeito lançado no período.', { t: 22, cor: COR.sec }));
+    out.push(svgTexto(MARGEM, y + 56, 'Nenhum defeito lançado no período.', { t: 22, cor: COR.sec }));
     y += 72;
   }
   y += 40;
-  s.push(svgLinha(MARGEM, y, LARG - MARGEM, y, COR.grade, 1));
-  s.push(svgTexto(MARGEM, y + 36, 'Apontamento Buy Off · refugo % considera só a produção contada em peças', { t: 17, cor: COR.fraco }));
+  out.push(svgLinha(MARGEM, y, LARG - MARGEM, y, COR.grade, 1));
+  out.push(svgTexto(MARGEM, y + 36, 'Apontamento Buy Off · produção em ' + (pilhas ? 'pilhas' : 'peças') +
+    (extra ? ' (lançamentos em peças à parte)' : ''), { t: 17, cor: COR.fraco }));
   var H = Math.ceil(y + 64);
 
   var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + LARG + '" height="' + H + '" viewBox="0 0 ' + LARG + ' ' + H +
-    '" font-family="Liberation Sans, DejaVu Sans, Arial, sans-serif">' + svgRet(0, 0, LARG, H, COR.fundo) + s.join('') + '</svg>';
+    '" font-family="Liberation Sans, DejaVu Sans, Arial, sans-serif">' + svgRet(0, 0, LARG, H, COR.fundo) + out.join('') + '</svg>';
   var html = '<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;background:#fff}' +
     'body{width:' + LARG + 'px;height:' + H + 'px;overflow:hidden}svg{display:block}</style></head><body>' + svg + '</body></html>';
-  var legenda = '📈 ' + titulo + ' · gráficos'; // os números vêm logo depois, no texto
-  return { html: html, largura: LARG, altura: H, legenda: legenda };
+  return { html: html, largura: LARG, altura: H, legenda: '📈 ' + tituloDe(cmd) + ' · gráficos' };
 }
 
 // ---------------------------------------------------------------------------

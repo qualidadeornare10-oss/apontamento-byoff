@@ -44,14 +44,16 @@ t('rótulos curtos', function () {
 });
 
 // ---- menu numerado -------------------------------------------------------------
+// O menu pergunta o setor antes do relatório: p() confere a pergunta e devolve o relatório que vem depois.
+function p(c) { assert.strictEqual(c.tipo, 'escolherSetor', JSON.stringify(c)); return c.pendente; }
 t('números do menu', function () {
-  var c1 = cmd('1'), c3 = cmd('3');
+  var c1 = p(cmd('1')), c3 = cmd('3');
   assert.deepStrictEqual([c1.tipo, c1.ini, c1.fim], ['resumo', HOJE, HOJE]);
   assert.deepStrictEqual(cmd('2'), { tipo: 'escolherSemana' });
   assert.deepStrictEqual([c3.tipo, c3.ini], ['pendentes', HOJE]);
 });
 t('número com barra, ponto ou emoji', function () {
-  assert.strictEqual(cmd('/1').quando, 'de hoje');
+  assert.strictEqual(p(cmd('/1')).quando, 'de hoje');
   assert.strictEqual(cmd('3.').tipo, 'pendentes');
   assert.strictEqual(cmd('2️⃣').tipo, 'escolherSemana');
   assert.strictEqual(cmd(' 3 ').tipo, 'pendentes');
@@ -75,8 +77,8 @@ t('pergunta qual semana com as datas', function () {
     'Responda só com o número · *0* volta ao menu');
 });
 t('resposta da semana', function () {
-  var c = semana('1'); assert.deepStrictEqual([c.tipo, c.ini, c.fim, c.quando], ['resumo', '2026-11-16', HOJE, 'da semana']);
-  c = semana('2'); assert.deepStrictEqual([c.ini, c.fim, c.quando, c.rotulo], ['2026-11-09', '2026-11-15', 'da semana passada', 'Semana 46 · 09/11 a 15/11']);
+  var c = p(semana('1')); assert.deepStrictEqual([c.tipo, c.ini, c.fim, c.quando], ['resumo', '2026-11-16', HOJE, 'da semana']);
+  c = p(semana('2')); assert.deepStrictEqual([c.ini, c.fim, c.quando, c.rotulo], ['2026-11-09', '2026-11-15', 'da semana passada', 'Semana 46 · 09/11 a 15/11']);
   assert.deepStrictEqual(semana('3️⃣'), { tipo: 'pedirSemana' });
 });
 t('na pergunta da semana: 0 volta ao menu, número inválido repergunta, texto segue normal', function () {
@@ -93,31 +95,73 @@ t('pede o número da semana ou um dia', function () {
     '_Esta é a semana 47_ · *0* volta ao menu');
 });
 t('semana pelo número', function () {
-  var c = outra('45'); assert.deepStrictEqual([c.tipo, c.ini, c.fim, c.quando], ['resumo', '2026-11-02', '2026-11-08', 'da semana 45']);
-  assert.strictEqual(outra('S44').ini, '2026-10-26');
-  assert.strictEqual(outra('semana 47').quando, 'da semana');
-  assert.strictEqual(outra('46').quando, 'da semana passada');
-  assert.strictEqual(outra('48').ini, '2025-11-24');      // semana 48 deste ano ainda não chegou: a do ano passado
+  var c = p(outra('45')); assert.deepStrictEqual([c.tipo, c.ini, c.fim, c.quando], ['resumo', '2026-11-02', '2026-11-08', 'da semana 45']);
+  assert.strictEqual(p(outra('S44')).ini, '2026-10-26');
+  assert.strictEqual(p(outra('semana 47')).quando, 'da semana');
+  assert.strictEqual(p(outra('46')).quando, 'da semana passada');
+  assert.strictEqual(p(outra('48')).ini, '2025-11-24');      // semana 48 deste ano ainda não chegou: a do ano passado
 });
 t('semana pelo dia', function () {
-  var c = outra('04/11'); assert.deepStrictEqual([c.ini, c.fim], ['2026-11-02', '2026-11-08']);
-  assert.strictEqual(outra('17/11').quando, 'da semana');
+  var c = p(outra('04/11')); assert.deepStrictEqual([c.ini, c.fim], ['2026-11-02', '2026-11-08']);
+  assert.strictEqual(p(outra('17/11')).quando, 'da semana');
 });
 t('semana inválida pergunta de novo', function () {
   assert.ok(/Não existe semana 60/.test(outra('60').erro));
   assert.ok(/ainda não chegou/.test(outra('25/12/2026').erro));
-  assert.strictEqual(outra('25/12').ini, '2025-12-22');  // sem ano: o 25/12 mais recente
+  assert.strictEqual(p(outra('25/12')).ini, '2025-12-22');  // sem ano: o 25/12 mais recente
   assert.ok(/Data inválida/.test(outra('31/02').erro));
   assert.deepStrictEqual(outra('0'), { tipo: 'ajuda' });
   assert.strictEqual(outra('hoje').quando, 'de hoje');  // não é resposta: segue normal
 });
 t('semana escolhida tem gráfico e título certo', function () {
-  var g = n.graficoRelatorio(semana('2'), dados);
+  var g = n.graficoRelatorio(p(semana('2')), dados);
   assert.ok(g && g.html.indexOf('Resumo da semana passada') >= 0);
-  assert.ok(/^📊 \*Resumo da semana passada\*\n_Semana 46 · 09\/11 a 15\/11_/.test(n.responder(semana('2'), dados, HOJE)));
+  assert.ok(/^📊 \*Resumo da semana passada\*\n_Semana 46 · 09\/11 a 15\/11_/.test(n.responder(p(semana('2')), dados, HOJE)));
 });
 t('menu em grupo e pergunta em grupo pedem barra', function () {
   assert.ok(/\*\/1\*/.test(n.responder({ tipo: 'escolherSemana', grupo: true }, dados, HOJE)));
+});
+
+// ---- "Qual setor?" ----------------------------------------------------------------
+var PEND_HOJE = p(cmd('1'));
+function setor(txt) { return n.interpretar(txt, HOJE, { qual: 'setor', pendente: PEND_HOJE }); }
+t('pergunta qual setor', function () {
+  assert.strictEqual(n.responder({ tipo: 'escolherSetor', pendente: PEND_HOJE, grupo: false }, dados, HOJE),
+    '🏭 *Qual setor?*\n_Resumo de hoje · ter, 17/11_\n\n' +
+    '0️⃣ Todos\n1️⃣ Tagliabue   2️⃣ IBOTIC   3️⃣ Polimento\n4️⃣ Madeirado UV   5️⃣ Madeirado Colorido\n\n' +
+    'Pode escolher mais de um (ex.: *1 3*)\n*menu* volta ao início');
+});
+t('0 ou todos = todos os setores', function () {
+  ['0', '0️⃣', 'todos', 'Todos', '1 2 3 4 5'].forEach(function (x) {
+    var c = setor(x); assert.deepStrictEqual([c.tipo, c.ini, c.setores], ['resumo', HOJE, null], x);
+  });
+});
+t('um ou vários setores', function () {
+  assert.deepStrictEqual(setor('2').setores, ['ibotic']);
+  ['1 3', '1,3', '1, 3', '1 e 3', '13', '3 1', '1️⃣ 3️⃣', '/1 3'].forEach(function (x) {
+    assert.deepStrictEqual(setor(x).setores, ['tagliabue', 'polimento'], x);
+  });
+});
+t('setor inválido pergunta de novo; texto que não é resposta segue normal', function () {
+  var c = setor('7'); assert.deepStrictEqual([c.tipo, c.naoEntendi, c.pendente.quando], ['escolherSetor', true, 'de hoje']);
+  assert.strictEqual(setor('menu').tipo, 'ajuda');
+  assert.strictEqual(setor('semana').quando, 'da semana');
+});
+t('semana escolhida e depois o setor', function () {
+  var pend = p(n.interpretar('46', HOJE, 'qualSemana'));
+  var c = n.interpretar('2', HOJE, { qual: 'setor', pendente: pend });
+  assert.deepStrictEqual([c.ini, c.fim, c.setores], ['2026-11-09', '2026-11-15', ['ibotic']]);
+  assert.ok(/^📊 \*IBOTIC · Resumo da semana passada\*/.test(n.responder(c, dados, HOJE)));
+});
+t('vários setores: só eles no texto e no gráfico', function () {
+  var c = setor('1 3'), s = n.responder(c, dados, HOJE);
+  assert.ok(s.indexOf('📊 *Tagliabue e Polimento · Resumo de hoje*') === 0, s);
+  assert.ok(/• Tagliabue · 22 ruins · 1 lançamento\n• Polimento · _sem lançamento_\n/.test(s), s);
+  assert.ok(!/IBOTIC|Madeirado/.test(s), s);
+  var w = n.interpretar('1', HOJE, 'semana').pendente; w.setores = ['tagliabue', 'polimento'];
+  var g = n.graficoRelatorio(w, dados);
+  assert.ok(g.html.indexOf('>Resumo da semana<') >= 0 && g.html.indexOf('Tagliabue e Polimento') >= 0, 'título');
+  assert.ok(g.html.indexOf('>IBOTIC<') < 0 && g.html.indexOf('>POLIMENTO<') >= 0, 'colunas só dos escolhidos');
 });
 t('menu em grupo pede barra', function () { assert.ok(/\*\/1\*/.test(n.menu(false, true)) && !/sair/.test(n.menu(false, true))); });
 t('outros comandos', function () { assert.strictEqual(cmd('comandos').tipo, 'comandos'); assert.ok(/semana passada/.test(n.responder(cmd('mais'), [], HOJE))); });
@@ -153,19 +197,24 @@ t('ninguém faltando ontem', function () { assert.strictEqual(n.faltando(dados, 
 // ---- texto ------------------------------------------------------------------
 t('texto do resumo de hoje', function () {
   var s = n.responder(cmd('hoje'), dados, HOJE);
-  assert.ok(s.indexOf('📊 *Resumo de hoje*\n_ter, 17/11_') === 0, s);
-  assert.ok(s.indexOf('*1,7%* de refugo\n2.000 pç · 15 pilhas · 38 ruins · 3 lançamentos') >= 0, s);
-  assert.ok(s.indexOf('• Tagliabue · *1,8%* · 1.200 pç · 22 ruins') >= 0, s);
-  assert.ok(s.indexOf('• Madeirado UV · 15 pilhas · 4 ruins') >= 0, s);
+  assert.ok(s.indexOf('📊 *Resumo de hoje*\n_ter, 17/11_\n\n*38 peças ruins* · 3 lançamentos\n') === 0, s);
+  assert.ok(s.indexOf('• Tagliabue · 22 ruins · 1 lançamento') >= 0, s);
+  assert.ok(s.indexOf('• Madeirado UV · 4 ruins · 1 lançamento') >= 0, s);
   assert.ok(s.indexOf('• Polimento · _sem lançamento_') >= 0, s);
   assert.ok(s.indexOf('*Principais defeitos*\nQ72 Pintura escorrida · 12\nQ81 Pintura com impureza · 10\nQ1 Peça batida · 8') >= 0, s);
-  assert.ok(s.indexOf('⏳ *Ainda sem lançamento*\nNoite: Tagliabue, Ibotic e Madeirado UV\nDia e noite: Polimento e Madeirado Colorido') >= 0, s);
+  assert.ok(s.indexOf('⏳ *Ainda sem lançamento*\nNoite: Tagliabue, IBOTIC e Madeirado UV\nDia e noite: Polimento e Madeirado Colorido') >= 0, s);
+});
+t('texto sem refugo nem produção', function () {
+  ['hoje', 'ontem', 'semana', 'semana tagliabue', 'defeitos semana', 'mes'].forEach(function (c) {
+    var s = n.responder(cmd(c), dados, HOJE);
+    assert.ok(!/refugo|%\*|pç|pilha/.test(s.replace(/\(\d+%\)/g, '')), c + '\n' + s);
+  });
 });
 t('texto do setor na semana tem turnos e quebra por dia', function () {
   var s = n.responder(cmd('semana tagliabue'), dados, HOJE);
   assert.ok(s.indexOf('📊 *Tagliabue · Resumo da semana*') === 0, s);
-  assert.ok(/🌙 Noite · \*1,0%\* · 900 pç · 9 ruins/.test(s), s);
-  assert.ok(/\*Por dia\*\nseg 16\/11 · 1,5% · 1\.900 pç/.test(s), s);
+  assert.ok(/☀️ Dia · 42 ruins · 2 lançamentos\n🌙 Noite · 9 ruins · 1 lançamento/.test(s), s);
+  assert.ok(/\*Por dia\*\nseg 16\/11 · 29 ruins · 2 lançamentos/.test(s), s);
   assert.ok(!/Ainda sem lançamento/.test(s), s);
 });
 t('setor num dia mostra o turno que falta', function () { assert.ok(/🌙 Noite · _sem lançamento_/.test(n.responder(cmd('hoje ibotic'), dados, HOJE))); });
@@ -240,7 +289,7 @@ t('gráfico da semana', function () {
   var g = n.graficoRelatorio(cmd('semana'), dados);
   assert.ok(g && g.largura === 1080 && g.altura > 1000 && g.altura < 2200, JSON.stringify(g && [g.largura, g.altura]));
   assert.ok(g.html.indexOf('Semana 47') >= 0);
-  assert.ok(g.html.indexOf('Refugo por setor') >= 0 && g.html.indexOf('TAGLIABUE') >= 0);
+  assert.ok(g.html.indexOf('Peças ruins por setor') >= 0 && g.html.indexOf('TAGLIABUE') >= 0);
   assert.ok(g.html.indexOf('Pintura escorrida') >= 0);
   assert.strictEqual(g.legenda, '📈 Resumo da semana · gráficos');
 });
@@ -250,7 +299,7 @@ t('gráfico não carrega nada de fora nem roda script', function () {
 });
 t('gráfico do setor compara turnos', function () {
   var g = n.graficoRelatorio(cmd('semana tagliabue'), dados);
-  assert.ok(g.html.indexOf('Refugo por turno') >= 0 && g.html.indexOf('Tagliabue · Resumo da semana') >= 0);
+  assert.ok(g.html.indexOf('Peças ruins por turno') >= 0 && g.html.indexOf('Tagliabue · Resumo da semana') >= 0);
 });
 t('gráfico de defeitos', function () {
   assert.ok(n.graficoRelatorio(cmd('defeitos semana'), dados).html.indexOf('Defeitos') >= 0);
@@ -262,6 +311,17 @@ t('período longo agrupa por semana', function () {
 t('gráfico só com pilhas não quebra', function () {
   var g = n.graficoRelatorio(cmd('16/11 a 17/11 uv'), dados.filter(function (r) { return r.unidade === 'Pilha'; }));
   assert.ok(g.html.indexOf('pilhas') >= 0 && !/NaN|undefined|Infinity/.test(g.html));
+});
+t('gráfico sem refugo e produção em pilhas', function () {
+  var h = n.graficoRelatorio(cmd('semana'), dados).html;
+  assert.ok(!/efugo/.test(h), 'ainda fala de refugo');
+  assert.ok(h.indexOf('>15 pilhas<') >= 0 && h.indexOf('Produção · + 7.100 pç') >= 0, 'cartão de produção');
+  assert.ok(h.indexOf('>Produção por dia<') >= 0 && h.indexOf('>pilhas<') >= 0, 'gráfico por dia em pilhas');
+  assert.ok(h.indexOf('>Principais defeitos<') >= 0, 'título dos defeitos sem parênteses');
+});
+t('só a IBOTIC (em peças) mostra a produção em peças', function () {
+  var h = n.graficoRelatorio(cmd('semana ibotic'), dados).html;
+  assert.ok(h.indexOf('>2.150 pç<') >= 0 && h.indexOf('>peças<') >= 0 && h.indexOf('pilha') < 0);
 });
 t('números do gráfico sempre válidos', function () {
   ['semana', 'semana passada', 'mes', 'defeitos semana', 'semana ibotic', '12/11 a 17/11'].forEach(function (c) {
@@ -321,10 +381,12 @@ t('workflows/buyoff-chatbot.json atualizado (rode node chatbot/build-workflow.js
 
 console.log((falhas ? '✗ ' : '✓ ') + ok + ' ok, ' + falhas + ' falha(s)');
 if (process.argv.indexOf('--mostrar') >= 0) {
-  ['relatorio', '1', '2', '2 → 3', '2 → 3 → 45', '2 → 3 → 60', '3', 'sair'].forEach(function (c) {
+  var pSem = n.interpretar('1', HOJE, 'semana').pendente;
+  ['relatorio', '1', '1 → 0', '1 → 1 3', '1 → 2', '2', '2 → 1', '2 → 1 → 0', '3', 'sair'].forEach(function (c) {
     var k = c === 'relatorio' ? { tipo: 'ajuda' } : c === 'sair' ? { tipo: 'aviso', msg: n.textoSair() } :
-      c === '2 → 3' ? n.interpretar('3', HOJE, 'semana') :
-      c.indexOf('2 → 3 → ') === 0 ? n.interpretar(c.slice(8), HOJE, 'qualSemana') : cmd(c);
+      c.indexOf('1 → ') === 0 ? n.interpretar(c.slice(4), HOJE, { qual: 'setor', pendente: PEND_HOJE }) :
+      c === '2 → 1' ? n.interpretar('1', HOJE, 'semana') :
+      c === '2 → 1 → 0' ? n.interpretar('0', HOJE, { qual: 'setor', pendente: pSem }) : cmd(c);
     k.grupo = false;
     console.log('\n──── ' + c + ' ────\n' + n.responder(k, dados, HOJE));
   });

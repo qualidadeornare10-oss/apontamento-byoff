@@ -16,21 +16,20 @@ WhatsApp ──► WAHA ──(webhook + token)──► n8n ──(acao "listar
 ## Exemplo de resposta
 
 ```
-📊 Buy Off · Pintura
-Ontem · seg 16/11/2026
+📊 Resumo de ontem
+seg, 16/11
 
-Total: 5.100 pç · 51 ruins · refugo 1,0%
-10 lançamentos
+51 peças ruins · 10 lançamentos
 
-TAGLIABUE · refugo 1,5%
-1.900 pç · 29 ruins · Dia ✓ Noite ✓
-Principais: Q72 Pintura escorrida (20) · Q1 Peça batida (9)
-
-IBOTIC · refugo 0,2%
-1.350 pç · 3 ruins · Dia ✓ Noite ✓
-Principais: Q73 Peça na cor errada (3)
+Setores
+• Tagliabue · 29 ruins · 2 lançamentos
+• IBOTIC · 3 ruins · 2 lançamentos
+• Polimento · 9 ruins · 2 lançamentos
 ...
-⚠️ Sem lançamento: POLIMENTO (Noite)
+Principais defeitos
+Q72 Pintura escorrida · 20
+Q1 Peça batida · 9
+Q74 Peça fora de tonalidade · 6
 ```
 
 ## Comandos
@@ -41,19 +40,21 @@ Dá para ligar e pedir de uma vez: `relatorio 1` ou `relatorio semana ibotic`. O
 
 O menu (lista `MENU` no `nucleo.js`) é respondido só com o número:
 
-| Número | Mesmo que |
+| Número | O que faz |
 |---|---|
-| `1` Resumo de hoje | `hoje` |
-| `2` Resumo semanal | pergunta **qual semana**: `1` esta, `2` a passada, `3` escolher outra (o usuário digita o número da semana, ex. `45`, ou um dia dela, ex. `04/11`; até 52 semanas para trás). Cada pergunta espera a resposta por 10 min (`ETAPA_MINUTOS`) |
-| `3` Quem ainda não lançou | `pendentes` |
+| `1` Resumo de hoje | pergunta **qual setor** e manda o resumo do dia |
+| `2` Resumo semanal | pergunta **qual semana** (`1` esta, `2` a passada, `3` escolher outra: o usuário digita o número da semana, ex. `45`, ou um dia dela, ex. `04/11`; até 52 semanas para trás), depois **qual setor**, e manda a foto com gráficos e o resumo |
+| `3` Quem ainda não lançou | o mesmo que `pendentes` |
 | `0` | volta ao menu |
 
-Os comandos digitados continuam valendo (`mais` mostra os principais):
+**Qual setor?** `0` (ou `todos`) = todos; um número de 1 a 5 = um setor; vários de uma vez com espaço, vírgula ou "e" (`1 3`, `1,3`, `1 e 3`). Com um setor só, o resumo mostra Dia × Noite e, na semana, cada dia. Nessa pergunta o `0` é "todos"; para voltar ao menu, mande `menu`. Cada pergunta espera a resposta por 10 min (`ETAPA_MINUTOS`).
+
+Os comandos digitados continuam valendo e vão direto, sem perguntar o setor (`mais` mostra os principais):
 
 | Mensagem | Resposta |
 |---|---|
 | `relatorio` / `sair` | Liga (manda o menu) / desliga o bot nesta conversa |
-| `hoje`, `ontem`, `semana`, `semana passada`, `mes`, `mes passado` | Resumo por setor: produção, peças ruins, refugo %, turnos lançados e principais defeitos |
+| `hoje`, `ontem`, `semana`, `semana passada`, `mes`, `mes passado` | Resumo: peças ruins e lançamentos, por setor, e os principais defeitos |
 | `17/11` ou `17/11/2026` | Um dia específico |
 | `10/11 a 16/11` | Um período (até 92 dias) |
 | `hoje ibotic`, `semana polimento`, `ontem uv`, `mes colorido`, `hoje tagliabue` | Detalhe do setor: por turno, top 5 defeitos e, em períodos, por dia |
@@ -63,18 +64,20 @@ Os comandos digitados continuam valendo (`mais` mostra os principais):
 
 - Maiúsculas e acentos não importam (`Mês`, `MES`, `mes`).
 - **Em grupo**, o bot só responde a mensagens que começam com barra (`/hoje`), para não reagir à conversa.
-- O refugo % segue a regra do formulário: só conta lançamentos com produção **em peças**. Produção em pilhas aparece separada.
+- O texto mostra só **peças ruins e lançamentos** (sem refugo % e sem produção). A produção aparece na foto.
 
 ### Foto com gráficos
 
-Nos pedidos de **período** (`semana`, `semana passada`, `mes`, `10/11 a 16/11`, `defeitos semana`, `semana ibotic`...) o bot manda primeiro uma **foto com gráficos** e logo depois o texto de sempre. A foto tem:
+Nos pedidos de **período** (`semana`, `semana passada`, `mes`, `10/11 a 16/11`, `defeitos semana`, `semana ibotic`...) o bot manda primeiro uma **foto com gráficos** e logo depois o texto. A foto tem:
 
-- cartões com produção, peças ruins, refugo % e número de lançamentos;
-- produção por dia (ou por semana, em períodos acima de 35 dias), com a linha do refugo %;
-- refugo por setor (ou Dia × Noite, quando o pedido é de um setor);
+- cartões com produção, peças ruins e número de lançamentos;
+- produção por dia (ou por semana, em períodos acima de 35 dias);
+- peças ruins por setor (ou Dia × Noite, quando o pedido é de um setor);
 - os 6 principais defeitos.
 
-`hoje`, `ontem`, um dia só e `pendentes` continuam só em texto. O relatório automático de segunda (semana passada) também vai com a foto.
+**Produção em pilhas**, que é como quase todos os setores lançam. Quem lança em peças (a IBOTIC) aparece à parte no cartão ("Produção · + 2.150 pç"), sem somar pilha com peça. Se o pedido só tiver lançamentos em peças (ex.: só a IBOTIC), a produção sai em peças. Não há refugo % na foto.
+
+`hoje`, `ontem`, um dia só e `pendentes` vão só em texto. O relatório automático de segunda (semana passada) também vai com a foto.
 
 Quem desenha a foto é o **Gotenberg**, um terceiro serviço do `docker-compose.yml`. O n8n monta uma página só com SVG (sem JavaScript e sem nada de fora) e o Gotenberg devolve o PNG. Ele não tem porta aberta, roda com JavaScript desligado e não acessa nenhum endereço, então os números não saem da máquina. Se ele falhar, o texto vai assim mesmo.
 
