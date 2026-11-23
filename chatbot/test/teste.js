@@ -36,6 +36,42 @@ t('pendentes', function () { var c = cmd('pendentes'); assert.deepStrictEqual([c
 t('pendentes ontem', function () { assert.strictEqual(cmd('faltando ontem').ini, '2026-11-16'); });
 t('ajuda', function () { assert.strictEqual(cmd('ajuda').tipo, 'ajuda'); assert.strictEqual(cmd('bom dia').tipo, 'ajuda'); });
 t('não entendi', function () { var c = cmd('qual a previsão do tempo'); assert.strictEqual(c.tipo, 'ajuda'); assert.ok(c.naoEntendi); });
+t('rótulos curtos', function () {
+  assert.strictEqual(cmd('hoje').rotulo, 'ter, 17/11');
+  assert.strictEqual(cmd('semana').rotulo, 'Semana 47 · 16/11 a 17/11');
+  assert.strictEqual(cmd('mes').rotulo, 'Novembro · 01/11 a 17/11');
+  assert.strictEqual(n.interpretar('28/12', '2027-01-05').rotulo, 'seg, 28/12/2026');
+});
+
+// ---- menu numerado -------------------------------------------------------------
+t('números do menu', function () {
+  var esperado = { '1': ['resumo', HOJE, HOJE], '2': ['resumo', '2026-11-16', '2026-11-16'], '3': ['resumo', '2026-11-16', HOJE],
+    '4': ['defeitos', '2026-11-16', HOJE], '5': ['pendentes', HOJE, HOJE] };
+  Object.keys(esperado).forEach(function (k) { var c = cmd(k); assert.deepStrictEqual([c.tipo, c.ini, c.fim], esperado[k], k); });
+});
+t('número com barra, ponto ou emoji', function () {
+  assert.strictEqual(cmd('/3').quando, 'da semana');
+  assert.strictEqual(cmd('3.').quando, 'da semana');
+  assert.strictEqual(cmd('3️⃣').quando, 'da semana');
+  assert.strictEqual(cmd(' 4 ').tipo, 'defeitos');
+});
+t('0 é o menu e número fora do menu não é entendido', function () {
+  assert.deepStrictEqual(cmd('0'), { tipo: 'ajuda' });
+  assert.ok(cmd('6').naoEntendi && cmd('99').naoEntendi);
+});
+t('menu igual ao modelo', function () {
+  assert.strictEqual(n.menu(false, false), '📊 *Buy Off · Pintura*\nEscolha uma opção:\n\n' +
+    '1️⃣ Resumo de hoje\n2️⃣ Resumo de ontem\n3️⃣ Resumo da semana\n4️⃣ Defeitos da semana\n5️⃣ Quem ainda não lançou\n\n' +
+    'Responda só com o número · *sair* para encerrar');
+});
+t('menu em grupo pede barra', function () { assert.ok(/\*\/1\*/.test(n.menu(false, true)) && !/sair/.test(n.menu(false, true))); });
+t('outros comandos', function () { assert.strictEqual(cmd('comandos').tipo, 'comandos'); assert.ok(/semana passada/.test(n.responder(cmd('mais'), [], HOJE))); });
+t('rodapé só na conversa, não no agendado', function () {
+  var c = cmd('ontem');
+  assert.ok(!/menu/.test(n.responder(c, dados, HOJE)));                                   // agendado (sem grupo)
+  c.grupo = false; assert.ok(/\*0\* menu · \*sair\* encerra_$/.test(n.responder(c, dados, HOJE)));
+  c.grupo = true; assert.ok(/\*\/0\* menu_$/.test(n.responder(c, dados, HOJE)));
+});
 
 // ---- cálculo ---------------------------------------------------------------
 t('agrega hoje', function () {
@@ -62,20 +98,27 @@ t('ninguém faltando ontem', function () { assert.strictEqual(n.faltando(dados, 
 // ---- texto ------------------------------------------------------------------
 t('texto do resumo de hoje', function () {
   var s = n.responder(cmd('hoje'), dados, HOJE);
-  assert.ok(s.indexOf('*Total:* 2.000 pç · 15 pilhas · 38 ruins · *refugo 1,7%*') >= 0, s);
-  assert.ok(s.indexOf('*TAGLIABUE* · refugo 1,8%') >= 0, s);
-  assert.ok(s.indexOf('Q72 Pintura escorrida (12)') >= 0, s);
-  assert.ok(s.indexOf('*POLIMENTO* · sem lançamento') >= 0, s);
-  assert.ok(s.indexOf('Ainda sem lançamento hoje') >= 0, s);
+  assert.ok(s.indexOf('📊 *Resumo de hoje*\n_ter, 17/11_') === 0, s);
+  assert.ok(s.indexOf('*1,7%* de refugo\n2.000 pç · 15 pilhas · 38 ruins · 3 lançamentos') >= 0, s);
+  assert.ok(s.indexOf('• Tagliabue · *1,8%* · 1.200 pç · 22 ruins') >= 0, s);
+  assert.ok(s.indexOf('• Madeirado UV · 15 pilhas · 4 ruins') >= 0, s);
+  assert.ok(s.indexOf('• Polimento · _sem lançamento_') >= 0, s);
+  assert.ok(s.indexOf('*Principais defeitos*\nQ72 Pintura escorrida · 12\nQ81 Pintura com impureza · 10\nQ1 Peça batida · 8') >= 0, s);
+  assert.ok(s.indexOf('⏳ *Ainda sem lançamento*\nNoite: Tagliabue, Ibotic e Madeirado UV\nDia e noite: Polimento e Madeirado Colorido') >= 0, s);
 });
-t('texto do setor na semana tem quebra por dia', function () {
+t('texto do setor na semana tem turnos e quebra por dia', function () {
   var s = n.responder(cmd('semana tagliabue'), dados, HOJE);
-  assert.ok(/Por dia/.test(s) && /seg 16\/11: 1\.900 pç/.test(s), s);
-  assert.ok(/Noite: 900 pç/.test(s), s);
+  assert.ok(s.indexOf('📊 *Tagliabue · Resumo da semana*') === 0, s);
+  assert.ok(/🌙 Noite · \*1,0%\* · 900 pç · 9 ruins/.test(s), s);
+  assert.ok(/\*Por dia\*\nseg 16\/11 · 1,5% · 1\.900 pç/.test(s), s);
+  assert.ok(!/Ainda sem lançamento/.test(s), s);
 });
+t('setor num dia mostra o turno que falta', function () { assert.ok(/🌙 Noite · _sem lançamento_/.test(n.responder(cmd('hoje ibotic'), dados, HOJE))); });
 t('texto de defeitos', function () {
   var s = n.responder(cmd('defeitos ontem'), dados, HOJE);
-  assert.ok(s.indexOf('1. *Q72* Pintura escorrida: 20') >= 0, s);
+  assert.ok(s.indexOf('🔎 *Defeitos de ontem*') === 0, s);
+  assert.ok(s.indexOf('1. Q72 Pintura escorrida · *20*') >= 0, s);
+  assert.ok(/• Tagliabue · 29 ruins · mais comum Q72/.test(s), s);
 });
 t('sem lançamentos', function () { assert.ok(/Nenhum lançamento/.test(n.responder(cmd('01/11'), dados, HOJE))); });
 t('pendentes ontem ok', function () { assert.ok(/Todos os setores/.test(n.responder(cmd('pendentes ontem'), dados, HOJE))); });
@@ -119,9 +162,14 @@ t('em grupo a barra basta e sair é ignorado', function () {
   assert.strictEqual(cs('/relatorio', null, true).ativoAte > AGORA, true);
 });
 t('mensagens de ligar e sair', function () {
-  assert.ok(/Relatórios ativados/.test(n.responder({ tipo: 'ajuda', abertura: true })));
-  assert.ok(/sair/.test(n.responder({ tipo: 'ajuda' })));
+  assert.strictEqual(n.responder({ tipo: 'ajuda', abertura: true, grupo: false }), n.menu(false, false));
+  assert.ok(/^Não entendi/.test(n.responder({ tipo: 'ajuda', naoEntendi: true, grupo: false })));
   assert.ok(/encerrados/.test(n.responder({ tipo: 'aviso', msg: n.textoSair() })));
+});
+t('relatorio com número já responde a opção', function () {
+  var r = cs('relatorio 3', null);
+  assert.deepStrictEqual([r.acao, r.resto], ['abrir', '3']);
+  assert.strictEqual(cmd(r.resto).quando, 'da semana');
 });
 
 // ---- painel de gráficos (foto) -------------------------------------------------
@@ -139,7 +187,7 @@ t('gráfico da semana', function () {
   assert.ok(g.html.indexOf('Semana 47') >= 0);
   assert.ok(g.html.indexOf('Refugo por setor') >= 0 && g.html.indexOf('TAGLIABUE') >= 0);
   assert.ok(g.html.indexOf('Pintura escorrida') >= 0);
-  assert.ok(/refugo 1,\d%/.test(g.legenda), g.legenda);
+  assert.strictEqual(g.legenda, '📈 Resumo da semana · gráficos');
 });
 t('gráfico não carrega nada de fora nem roda script', function () {
   var h = n.graficoRelatorio(cmd('mes'), dados).html.replace('xmlns="http://www.w3.org/2000/svg"', '');
@@ -147,7 +195,7 @@ t('gráfico não carrega nada de fora nem roda script', function () {
 });
 t('gráfico do setor compara turnos', function () {
   var g = n.graficoRelatorio(cmd('semana tagliabue'), dados);
-  assert.ok(g.html.indexOf('Refugo por turno') >= 0 && g.html.indexOf('Pintura · TAGLIABUE') >= 0);
+  assert.ok(g.html.indexOf('Refugo por turno') >= 0 && g.html.indexOf('Tagliabue · Resumo da semana') >= 0);
 });
 t('gráfico de defeitos', function () {
   assert.ok(n.graficoRelatorio(cmd('defeitos semana'), dados).html.indexOf('Defeitos') >= 0);
@@ -218,8 +266,10 @@ t('workflows/buyoff-chatbot.json atualizado (rode node chatbot/build-workflow.js
 
 console.log((falhas ? '✗ ' : '✓ ') + ok + ' ok, ' + falhas + ' falha(s)');
 if (process.argv.indexOf('--mostrar') >= 0) {
-  ['ajuda', 'hoje', 'ontem', 'semana tagliabue', 'defeitos semana', 'pendentes'].forEach(function (c) {
-    console.log('\n──── ' + c + ' ────\n' + n.responder(cmd(c), dados, HOJE));
+  ['relatorio', '1', '2', '3', '4', '5', 'semana tagliabue', 'comandos', '9', 'sair'].forEach(function (c) {
+    var k = c === 'relatorio' ? { tipo: 'ajuda' } : c === 'sair' ? { tipo: 'aviso', msg: n.textoSair() } : cmd(c);
+    k.grupo = false;
+    console.log('\n──── ' + c + ' ────\n' + n.responder(k, dados, HOJE));
   });
 }
 process.exit(falhas ? 1 : 0);

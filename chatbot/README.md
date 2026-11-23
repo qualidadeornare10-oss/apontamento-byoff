@@ -37,18 +37,31 @@ Principais: Q73 Peça na cor errada (3)
 
 **Para começar, mande `relatorio`** (vale `Relatório`, `RELATORIO`, com ou sem acento). O bot responde com o menu e passa a atender aquela conversa. **Para encerrar, mande `sair`.** Ele também encerra sozinho depois de 30 minutos sem mensagens (`SESSAO_MINUTOS` no `nucleo.js`). Fora disso o bot fica em silêncio, então o número pode ser usado para conversar normalmente.
 
-Dá para ligar e pedir de uma vez: `relatorio semana ibotic`. O relatório automático das 07:00 não depende disso. Em grupo também não há liga/desliga: lá a barra (`/hoje`) já indica que a mensagem é para o bot.
+Dá para ligar e pedir de uma vez: `relatorio 3` ou `relatorio semana ibotic`. O relatório automático das 07:00 não depende disso. Em grupo também não há liga/desliga: lá a barra (`/hoje`, `/1`) já indica que a mensagem é para o bot.
+
+O menu (lista `MENU` no `nucleo.js`) é respondido só com o número:
+
+| Número | Mesmo que |
+|---|---|
+| `1` Resumo de hoje | `hoje` |
+| `2` Resumo de ontem | `ontem` |
+| `3` Resumo da semana | `semana` |
+| `4` Defeitos da semana | `defeitos semana` |
+| `5` Quem ainda não lançou | `pendentes` |
+| `0` | volta ao menu |
+
+Os comandos digitados continuam valendo (`mais` mostra os principais):
 
 | Mensagem | Resposta |
 |---|---|
-| `relatorio` / `sair` | Liga / desliga o bot nesta conversa |
+| `relatorio` / `sair` | Liga (manda o menu) / desliga o bot nesta conversa |
 | `hoje`, `ontem`, `semana`, `semana passada`, `mes`, `mes passado` | Resumo por setor: produção, peças ruins, refugo %, turnos lançados e principais defeitos |
 | `17/11` ou `17/11/2026` | Um dia específico |
 | `10/11 a 16/11` | Um período (até 92 dias) |
 | `hoje ibotic`, `semana polimento`, `ontem uv`, `mes colorido`, `hoje tagliabue` | Detalhe do setor: por turno, top 5 defeitos e, em períodos, por dia |
 | `defeitos semana` (ou `defeitos ontem ibotic`...) | Ranking dos códigos Q com % das peças ruins |
 | `pendentes` (ou `pendentes ontem`) | Setor/turno que ainda não lançou |
-| `ajuda` | Lista de comandos |
+| `menu`, `ajuda` ou `0` / `mais` | Menu numerado / outros comandos |
 
 - Maiúsculas e acentos não importam (`Mês`, `MES`, `mes`).
 - **Em grupo**, o bot só responde a mensagens que começam com barra (`/hoje`), para não reagir à conversa.
@@ -129,8 +142,8 @@ Depois abra <http://localhost:5678> e crie a conta de dono do n8n (fica só nest
 
 ## Passo 5 · Testar
 
-1. De um número autorizado, mande **ajuda** para o número do bot. Ele responde a lista de comandos.
-2. Mande **hoje**. Deve chegar o resumo do dia.
+1. De um número autorizado, mande **relatorio** para o número do bot. Ele responde o menu.
+2. Mande **1**. Deve chegar o resumo do dia.
 3. Se não responder, veja **Executions** no n8n (dica: o nó **WAHA: mensagem recebida** mostra exatamente o que o WAHA mandou).
 
 **Relatório automático no grupo:**

@@ -8,14 +8,24 @@
 
 var TZ = 'America/Sao_Paulo';
 
-// Mesmos ids e nomes do app.js / Code.gs. "apelidos" = como o pessoal escreve no WhatsApp.
+// Mesmos ids e nomes do app.js / Code.gs. "curto" = nome nas mensagens; "apelidos" = como o pessoal escreve.
 var SETORES = [
-  { id: 'tagliabue', nome: 'TAGLIABUE', apelidos: ['tagliabue', 'taglia'] },
-  { id: 'ibotic', nome: 'IBOTIC', apelidos: ['ibotic'] },
-  { id: 'polimento', nome: 'POLIMENTO', apelidos: ['polimento'] },
-  { id: 'madeirado-uv', nome: 'MADEIRADO UV', apelidos: ['madeirado uv', 'madeirado-uv', 'uv'] },
-  { id: 'madeirado-colorido', nome: 'MADEIRADO COLORIDO', apelidos: ['madeirado colorido', 'madeirado-colorido', 'colorido'] }
+  { id: 'tagliabue', nome: 'TAGLIABUE', curto: 'Tagliabue', apelidos: ['tagliabue', 'taglia'] },
+  { id: 'ibotic', nome: 'IBOTIC', curto: 'Ibotic', apelidos: ['ibotic'] },
+  { id: 'polimento', nome: 'POLIMENTO', curto: 'Polimento', apelidos: ['polimento'] },
+  { id: 'madeirado-uv', nome: 'MADEIRADO UV', curto: 'Madeirado UV', apelidos: ['madeirado uv', 'madeirado-uv', 'uv'] },
+  { id: 'madeirado-colorido', nome: 'MADEIRADO COLORIDO', curto: 'Madeirado Colorido', apelidos: ['madeirado colorido', 'madeirado-colorido', 'colorido'] }
 ];
+
+// Menu numerado: o que cada número pede (mesmos comandos que dá para digitar).
+var MENU = [
+  ['Resumo de hoje', 'hoje'],
+  ['Resumo de ontem', 'ontem'],
+  ['Resumo da semana', 'semana'],
+  ['Defeitos da semana', 'defeitos semana'],
+  ['Quem ainda não lançou', 'pendentes']
+];
+var EMOJI_NUM = ['0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
 
 // Turnos em que cada setor deveria ter lançamento (para o aviso "Faltando lançamento").
 // Se um setor não trabalha à noite, deixe só ['Dia'].
@@ -45,6 +55,8 @@ var DEFEITOS = {
 
 var MAX_DIAS = 92;          // período máximo de uma consulta
 var DIAS_SEM = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+var MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro',
+  'Outubro', 'Novembro', 'Dezembro'];
 
 // ---------------------------------------------------------------------------
 // Datas (sempre 'aaaa-mm-dd', no fuso de São Paulo)
@@ -76,6 +88,18 @@ function semanaIso(iso) {
 
 function segundaDaSemana(iso) { return somaDias(iso, -((diaDaSemana(iso) + 6) % 7)); }
 
+/** "ter, 17/11" (com o ano só quando não é o ano corrente). */
+function rotuloDia(iso, hoje) {
+  var y = partes(iso).y;
+  return DIAS_SEM[diaDaSemana(iso)] + ', ' + brCurto(iso) + (y !== partes(hoje).y ? '/' + y : '');
+}
+/** "10/11 a 16/11" (com o ano quando o período não é todo do ano corrente). */
+function rotuloPeriodo(ini, fim, hoje) {
+  if (ini === fim) return rotuloDia(ini, hoje);
+  var y = partes(hoje).y, comAno = partes(ini).y !== y || partes(fim).y !== y;
+  return brCurto(ini) + ' a ' + (comAno ? br(fim) : brCurto(fim));
+}
+
 // ---------------------------------------------------------------------------
 // Interpretação do comando
 // ---------------------------------------------------------------------------
@@ -102,6 +126,14 @@ function lerData(dd, mm, aa, hoje) {
  * ou { tipo: 'erro', msg }.
  */
 function interpretar(texto, hoje) {
+  // Número do menu ("3", "/3", "3️⃣"); 0 = menu.
+  var so = normaliza(texto).replace(/[️⃣]/g, '').replace(/^[\/!#.]+/, '').replace(/[.)!]+$/, '').trim();
+  if (/^\d{1,2}$/.test(so)) {
+    var op = +so;
+    if (op === 0) return { tipo: 'ajuda' };
+    return MENU[op - 1] ? interpretar(MENU[op - 1][1], hoje) : { tipo: 'ajuda', naoEntendi: true };
+  }
+
   var s = ' ' + normaliza(texto).replace(/^[\/!#.]+/, '') + ' ';
 
   // setor (apelidos mais longos primeiro, para "madeirado uv" ganhar de "uv")
@@ -126,39 +158,43 @@ function interpretar(texto, hoje) {
   function tem() { for (var j = 0; j < arguments.length; j++) if (palavras.indexOf(arguments[j]) >= 0) return true; return false; }
 
   if (!palavras.length && !datas.length && !setor) return { tipo: 'ajuda' };
-  if (tem('ajuda', 'menu', 'help', 'comandos', 'oi', 'ola', 'bom', 'boa', 'start')) return { tipo: 'ajuda' };
+  if (tem('comandos', 'mais', 'outros')) return { tipo: 'comandos' };
+  if (tem('ajuda', 'menu', 'help', 'opcoes', 'oi', 'ola', 'bom', 'boa', 'start')) return { tipo: 'ajuda' };
 
   var tipo = 'resumo';
   if (tem('defeito', 'defeitos', 'codigos', 'codigo', 'top')) tipo = 'defeitos';
   else if (tem('pendente', 'pendentes', 'pendencia', 'pendencias', 'faltando', 'falta', 'faltam')) tipo = 'pendentes';
 
+  // quando = fim do título ("Resumo da semana", "Defeitos de ontem"); rotulo = linha de baixo, com as datas.
   var anterior = tem('passada', 'passado', 'anterior', 'ultima', 'ultimo');
-  var ini, fim, rotulo;
+  var ini, fim, quando, rotulo;
   if (datas.length >= 2) {
     ini = datas[0] < datas[1] ? datas[0] : datas[1];
     fim = datas[0] < datas[1] ? datas[1] : datas[0];
-    rotulo = brCurto(ini) + ' a ' + br(fim);
+    quando = 'do período';
   } else if (datas.length === 1) {
     ini = fim = datas[0];
-    rotulo = DIAS_SEM[diaDaSemana(ini)] + ' ' + br(ini);
+    quando = 'do dia';
   } else if (tem('ontem')) {
     ini = fim = somaDias(hoje, -1);
-    rotulo = 'Ontem · ' + DIAS_SEM[diaDaSemana(ini)] + ' ' + br(ini);
+    quando = 'de ontem';
   } else if (tem('semana', 'semanal')) {
     ini = segundaDaSemana(hoje);
     if (anterior) { ini = somaDias(ini, -7); fim = somaDias(ini, 6); } else fim = hoje;
-    rotulo = 'Semana ' + semanaIso(ini) + ' · ' + brCurto(ini) + ' a ' + br(fim);
+    quando = anterior ? 'da semana passada' : 'da semana';
+    rotulo = 'Semana ' + semanaIso(ini) + ' · ' + rotuloPeriodo(ini, fim, hoje);
   } else if (tem('mes', 'mensal')) {
     var p = partes(hoje);
     if (anterior) {
       var y = p.m === 1 ? p.y - 1 : p.y, mm = p.m === 1 ? 12 : p.m - 1;
       ini = y + '-' + pad(mm) + '-01'; fim = somaDias(p.y + '-' + pad(p.m) + '-01', -1);
     } else { ini = p.y + '-' + pad(p.m) + '-01'; fim = hoje; }
-    rotulo = 'Mês ' + pad(partes(ini).m) + '/' + partes(ini).y + ' · ' + brCurto(ini) + ' a ' + br(fim);
+    quando = anterior ? 'do mês passado' : 'do mês';
+    rotulo = MESES[partes(ini).m - 1] + ' · ' + rotuloPeriodo(ini, fim, hoje);
   } else if (tem('hoje', 'dia', 'agora', 'resumo', 'relatorio', 'defeito', 'defeitos', 'codigos', 'codigo', 'top',
                  'pendente', 'pendentes', 'pendencia', 'pendencias', 'faltando', 'falta', 'faltam') || setor) {
     ini = fim = hoje;
-    rotulo = 'Hoje · ' + DIAS_SEM[diaDaSemana(ini)] + ' ' + br(ini);
+    quando = 'de hoje';
   } else {
     return { tipo: 'ajuda', naoEntendi: true };
   }
@@ -166,9 +202,10 @@ function interpretar(texto, hoje) {
   if (ini > hoje) return { tipo: 'erro', msg: 'A data ' + br(ini) + ' ainda não chegou.' };
   if (fim > hoje) fim = hoje;
   if (dias(ini, fim) > MAX_DIAS) return { tipo: 'erro', msg: 'Período grande demais (máximo ' + MAX_DIAS + ' dias).' };
-  if (tipo === 'pendentes' && ini !== fim) { ini = fim; rotulo = DIAS_SEM[diaDaSemana(fim)] + ' ' + br(fim); }
+  if (tipo === 'pendentes' && ini !== fim) { ini = fim; rotulo = null; }
+  if (!rotulo) rotulo = rotuloPeriodo(ini, fim, hoje);
 
-  return { tipo: tipo, ini: ini, fim: fim, rotulo: rotulo, setor: setor };
+  return { tipo: tipo, ini: ini, fim: fim, quando: quando, rotulo: rotulo, setor: setor };
 }
 
 // ---------------------------------------------------------------------------
@@ -213,7 +250,10 @@ function topDefeitos(defs, n) {
 function num(n) { return String(Math.round(n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
 function pct(x) { return x === null || x === undefined ? '-' : (x * 100).toFixed(1).replace('.', ',') + '%'; }
 function nomeSetor(id) { for (var i = 0; i < SETORES.length; i++) if (SETORES[i].id === id) return SETORES[i].nome; return id; }
+function curtoSetor(id) { for (var i = 0; i < SETORES.length; i++) if (SETORES[i].id === id) return SETORES[i].curto; return id; }
 function descDefeito(c) { return DEFEITOS[c] ? c + ' ' + DEFEITOS[c] : c; }
+function lista(a) { return a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' e ' + a[a.length - 1]; }
+function maiuscula(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 
 function linhaProducao(a) {
   var p = [];
@@ -223,8 +263,27 @@ function linhaProducao(a) {
   return p.join(' · ');
 }
 
-function cabecalho(cmd, titulo) {
-  return '📊 *' + titulo + '*' + (cmd.setor ? ' · ' + nomeSetor(cmd.setor) : '') + '\n_' + cmd.rotulo + '_';
+/** "1,8% · 1.200 pç · 22 ruins" (o refugo só aparece quando há produção em peças). */
+function numerosLinha(a, negrito) {
+  var r = a.refugo !== null ? (negrito ? '*' + pct(a.refugo) + '*' : pct(a.refugo)) + ' · ' : '';
+  return r + linhaProducao(a);
+}
+
+/** "Resumo da semana", "Defeitos de ontem", "Tagliabue · Resumo de hoje". */
+function tituloDe(cmd) {
+  var t = (cmd.tipo === 'defeitos' ? 'Defeitos' : 'Resumo') + (cmd.quando ? ' ' + cmd.quando : '');
+  return cmd.setor ? curtoSetor(cmd.setor) + ' · ' + t : t;
+}
+
+function cabecalho(cmd, emoji, titulo) {
+  return emoji + ' *' + titulo + '*\n_' + cmd.rotulo + '_';
+}
+
+/** Principais defeitos, um por linha: "Q72 Pintura escorrida · 12". */
+function blocoDefeitos(defs, n) {
+  var top = topDefeitos(defs, n);
+  if (!top.length) return [];
+  return ['', '*Principais defeitos*'].concat(top.map(function (d) { return descDefeito(d[0]) + ' · ' + num(d[1]); }));
 }
 
 /** Setor/turno sem nenhum lançamento no dia. */
@@ -239,92 +298,93 @@ function faltando(registros, dia) {
   return out;
 }
 
-function textoFaltando(registros, cmd, hoje) {
-  if (cmd.ini !== cmd.fim) return '';
+/** Linhas "Noite: Tagliabue, Ibotic e Madeirado UV" agrupando os setores pelos turnos que faltam. */
+function linhasFaltando(registros, cmd) {
   var f = faltando(registros, cmd.fim).filter(function (x) { return !cmd.setor || x.setor === cmd.setor; });
-  if (!f.length) return '';
-  var titulo = cmd.fim === hoje ? 'Ainda sem lançamento hoje' : 'Sem lançamento';
-  return '⚠️ *' + titulo + ':* ' + f.map(function (x) {
-    return nomeSetor(x.setor) + ' (' + x.turnos.join(', ') + ')';
-  }).join(' · ');
+  var grupos = {}, ordem = [];
+  f.forEach(function (x) {
+    var k = maiuscula(x.turnos.join(' e ').toLowerCase());
+    if (!grupos[k]) { grupos[k] = []; ordem.push(k); }
+    grupos[k].push(curtoSetor(x.setor));
+  });
+  return ordem.map(function (k) { return k + ': ' + lista(grupos[k]); });
+}
+
+function blocoFaltando(registros, cmd, hoje) {
+  if (cmd.ini !== cmd.fim) return [];
+  var l = linhasFaltando(registros, cmd);
+  if (!l.length) return [];
+  return ['', cmd.fim === hoje ? '⏳ *Ainda sem lançamento*' : '⚠️ *Sem lançamento*'].concat(l);
 }
 
 function relatorioResumo(cmd, registros, hoje) {
   var regs = filtrar(registros, cmd);
-  var linhas = [cabecalho(cmd, 'Buy Off · Pintura'), ''];
   var total = agrega(regs);
+  var L = [cabecalho(cmd, '📊', tituloDe(cmd)), ''];
 
   if (!regs.length) {
-    linhas.push('Nenhum lançamento no período.');
+    L.push('Nenhum lançamento ' + (cmd.ini === cmd.fim ? 'neste dia.' : 'no período.'));
   } else {
-    linhas.push('*Total:* ' + linhaProducao(total) + (total.refugo !== null ? ' · *refugo ' + pct(total.refugo) + '*' : ''));
-    linhas.push(total.n + (total.n === 1 ? ' lançamento' : ' lançamentos') +
-      (total.pilhas ? ' _(refugo % só conta produção em peças)_' : ''));
+    // Destaque: refugo em cima, depois produção.
+    if (total.refugo !== null) L.push('*' + pct(total.refugo) + '* de refugo');
+    L.push(linhaProducao(total) + ' · ' + total.n + (total.n === 1 ? ' lançamento' : ' lançamentos'));
 
-    var setores = cmd.setor ? [cmd.setor] : SETORES.map(function (s) { return s.id; });
-    setores.forEach(function (id) {
-      var rs = regs.filter(function (r) { return r.setor === id; });
-      linhas.push('');
-      if (!rs.length) { linhas.push('*' + nomeSetor(id) + '* · sem lançamento'); return; }
-      var a = agrega(rs);
-      var marcas = cmd.ini === cmd.fim ? ['Dia', 'Noite'].map(function (t) { return t + (a.turnos[t] ? ' ✓' : ' ✗'); }).join(' ') : '';
-      if (cmd.setor) {
-        linhas.pop(); // o total já é o do setor: não repete o bloco
-        if (marcas) linhas.push('Turnos: ' + marcas);
-      } else {
-        linhas.push('*' + nomeSetor(id) + '* · ' + (a.refugo !== null ? 'refugo ' + pct(a.refugo) : 'em pilhas'));
-        linhas.push(linhaProducao(a) + (marcas ? ' · ' + marcas : ''));
-      }
-      var top = topDefeitos(a.defeitos, cmd.setor ? 5 : 3);
-      if (top.length) linhas.push('Principais: ' + top.map(function (d) { return descDefeito(d[0]) + ' (' + num(d[1]) + ')'; }).join(' · '));
-
-      if (cmd.setor) {
-        ['Dia', 'Noite'].forEach(function (t) {
-          var at = agrega(rs.filter(function (r) { return r.turno === t; }));
-          if (at.n) linhas.push('  ' + t + ': ' + linhaProducao(at) + (at.refugo !== null ? ' · refugo ' + pct(at.refugo) : ''));
-        });
-        if (cmd.ini !== cmd.fim) {
-          linhas.push('', '_Por dia:_');
-          for (var d = cmd.ini; d <= cmd.fim; d = somaDias(d, 1)) {
-            var ad = agrega(rs.filter(function (r) { return r.data === d; }));
-            if (ad.n) linhas.push('  ' + DIAS_SEM[diaDaSemana(d)] + ' ' + brCurto(d) + ': ' + linhaProducao(ad) + (ad.refugo !== null ? ' · ' + pct(ad.refugo) : ''));
-          }
+    if (!cmd.setor) {
+      L.push('', '*Setores*');
+      SETORES.forEach(function (st) {
+        var rs = regs.filter(function (r) { return r.setor === st.id; });
+        L.push('• ' + st.curto + ' · ' + (rs.length ? numerosLinha(agrega(rs), true) : '_sem lançamento_'));
+      });
+    } else {
+      var rs = regs; // já filtrado pelo setor
+      L.push('', '*Turnos*');
+      ['Dia', 'Noite'].forEach(function (t) {
+        var at = agrega(rs.filter(function (r) { return r.turno === t; }));
+        L.push((t === 'Dia' ? '☀️ ' : '🌙 ') + t + ' · ' + (at.n ? numerosLinha(at, true) : '_sem lançamento_'));
+      });
+      if (cmd.ini !== cmd.fim) {
+        L.push('', '*Por dia*');
+        for (var d = cmd.ini; d <= cmd.fim; d = somaDias(d, 1)) {
+          var ad = agrega(rs.filter(function (r) { return r.data === d; }));
+          if (ad.n) L.push(DIAS_SEM[diaDaSemana(d)] + ' ' + brCurto(d) + ' · ' + numerosLinha(ad));
         }
       }
-    });
+    }
+    L = L.concat(blocoDefeitos(total.defeitos, cmd.setor ? 5 : 3));
   }
 
-  var f = textoFaltando(registros, cmd, hoje);
-  if (f) linhas.push('', f);
-  return linhas.join('\n');
+  if (!cmd.setor) L = L.concat(blocoFaltando(registros, cmd, hoje)); // no setor, os turnos já mostram
+  return L.join('\n');
 }
 
 function relatorioDefeitos(cmd, registros) {
   var regs = filtrar(registros, cmd);
   var a = agrega(regs);
-  var linhas = [cabecalho(cmd, 'Defeitos'), ''];
-  var top = topDefeitos(a.defeitos, 10);
+  var L = [cabecalho(cmd, '🔎', tituloDe(cmd)), ''];
+  var top = topDefeitos(a.defeitos, 8);
   if (!top.length) {
-    linhas.push(regs.length ? 'Nenhum defeito lançado no período. 👏' : 'Nenhum lançamento no período.');
-    return linhas.join('\n');
+    L.push(regs.length ? 'Nenhum defeito lançado. 👏' : 'Nenhum lançamento ' + (cmd.ini === cmd.fim ? 'neste dia.' : 'no período.'));
+    return L.join('\n');
   }
-  linhas.push('*' + num(a.ruins) + ' peças ruins*' + (a.refugo !== null ? ' · refugo ' + pct(a.refugo) : ''), '');
+  L.push('*' + num(a.ruins) + ' peças ruins*' + (a.refugo !== null ? ' · ' + pct(a.refugo) + ' de refugo' : ''), '');
   top.forEach(function (d, i) {
-    linhas.push((i + 1) + '. *' + d[0] + '* ' + (DEFEITOS[d[0]] || '') + ': ' + num(d[1]) + ' (' + pct(a.ruins ? d[1] / a.ruins : 0) + ')');
+    L.push((i + 1) + '. ' + descDefeito(d[0]) + ' · *' + num(d[1]) + '*' + (a.ruins ? ' (' + Math.round(100 * d[1] / a.ruins) + '%)' : ''));
   });
   if (!cmd.setor) {
-    linhas.push('', '_Por setor:_');
+    L.push('', '*Por setor*');
     SETORES.forEach(function (st) {
       var as = agrega(regs.filter(function (r) { return r.setor === st.id; }));
-      if (as.ruins) linhas.push('  ' + st.nome + ': ' + num(as.ruins) + ' ruins · ' + topDefeitos(as.defeitos, 1).map(function (d) { return d[0]; }).join(''));
+      var t1 = topDefeitos(as.defeitos, 1)[0];
+      if (as.ruins) L.push('• ' + st.curto + ' · ' + num(as.ruins) + ' ruins' + (t1 ? ' · mais comum ' + t1[0] : ''));
     });
   }
-  return linhas.join('\n');
+  return L.join('\n');
 }
 
 function relatorioPendentes(cmd, registros, hoje) {
-  var f = textoFaltando(registros, cmd, hoje);
-  return cabecalho(cmd, 'Lançamentos') + '\n\n' + (f || '✅ Todos os setores e turnos já lançaram.');
+  var l = linhasFaltando(registros, cmd);
+  var titulo = cmd.fim === hoje ? 'Quem ainda não lançou' : 'Quem não lançou';
+  return [cabecalho(cmd, '⏳', titulo), ''].concat(l.length ? l : ['✅ Todos os setores já lançaram, dia e noite.']).join('\n');
 }
 
 // ---------------------------------------------------------------------------
@@ -353,29 +413,44 @@ function controleSessao(texto, ativoAte, agoraMs, grupo) {
 }
 
 function textoSair() {
-  return '👋 *Relatórios encerrados.*\nQuando precisar de novo, mande *relatorio*.';
+  return '👋 Relatórios encerrados.\nPara voltar, mande *relatorio*.';
 }
 
-function ajuda(naoEntendi, abertura) {
-  return (abertura ? '✅ *Relatórios ativados.*\n\n' : '') + (naoEntendi ? 'Não entendi. ' : '') + '🤖 *Buy Off · Pintura*\n' +
-    'Mande uma destas mensagens:\n\n' +
-    '*hoje* · *ontem* · *semana* · *semana passada* · *mes* · *mes passado*\n' +
-    '*17/11* (um dia) · *10/11 a 16/11* (período)\n\n' +
-    'Acrescente o setor para detalhar: *hoje ibotic*, *semana polimento*, *ontem uv*, *mes colorido*, *hoje tagliabue*\n\n' +
-    '*defeitos semana* · ranking dos códigos Q\n' +
-    '*pendentes* · quem ainda não lançou hoje\n\n' +
-    'Para encerrar, mande *sair* (encerra sozinho depois de ' + SESSAO_MINUTOS + ' min sem mensagens).\n' +
-    '_Em grupo, comece com barra: /hoje_';
+/** Primeira mensagem ao ligar ("relatorio") e resposta a "menu", "0" ou mensagem não entendida. */
+function menu(naoEntendi, grupo) {
+  return (naoEntendi ? 'Não entendi 🤔\n\n' : '') +
+    '📊 *Buy Off · Pintura*\nEscolha uma opção:\n\n' +
+    MENU.map(function (m, i) { return EMOJI_NUM[i + 1] + ' ' + m[0]; }).join('\n') + '\n\n' +
+    (grupo ? 'Responda com barra e o número (ex.: */1*)' : 'Responda só com o número · *sair* para encerrar');
+}
+
+function textoComandos() {
+  return '⌨️ *Outros comandos*\n\n' +
+    '*semana passada* · *mes* · *mes passado*\n' +
+    '*17/11* · um dia\n' +
+    '*10/11 a 16/11* · um período\n\n' +
+    'Acrescente o setor para detalhar: *semana ibotic*, *ontem uv*\n' +
+    '_Setores: tagliabue, ibotic, polimento, uv, colorido_';
+}
+
+/** Rodapé das respostas na conversa (no relatório agendado, grupo é indefinido e não vai rodapé). */
+function rodape(cmd) {
+  if (cmd.grupo === false) return '\n\n_*0* menu · *sair* encerra_';
+  if (cmd.grupo === true) return '\n\n_*/0* menu_';
+  return '';
 }
 
 /** Monta a resposta final. registros = lista devolvida pelo Apps Script (acao listar). */
 function responder(cmd, registros, hoje) {
-  if (cmd.tipo === 'ajuda') return ajuda(cmd.naoEntendi, cmd.abertura);
+  if (cmd.tipo === 'ajuda') return menu(cmd.naoEntendi, cmd.grupo === true);
   if (cmd.tipo === 'aviso') return cmd.msg;
-  if (cmd.tipo === 'erro') return '⚠️ ' + cmd.msg + '\n\nMande *ajuda* para ver os comandos.';
-  if (cmd.tipo === 'defeitos') return relatorioDefeitos(cmd, registros);
-  if (cmd.tipo === 'pendentes') return relatorioPendentes(cmd, registros, hoje);
-  return relatorioResumo(cmd, registros, hoje);
+  var texto;
+  if (cmd.tipo === 'erro') texto = '⚠️ ' + cmd.msg;
+  else if (cmd.tipo === 'comandos') texto = textoComandos();
+  else if (cmd.tipo === 'defeitos') texto = relatorioDefeitos(cmd, registros);
+  else if (cmd.tipo === 'pendentes') texto = relatorioPendentes(cmd, registros, hoje);
+  else texto = relatorioResumo(cmd, registros, hoje);
+  return texto + rodape(cmd);
 }
 
 // ---------------------------------------------------------------------------
@@ -549,7 +624,7 @@ function graficoRelatorio(cmd, registros) {
   var regs = filtrar(registros, cmd);
   if (!regs.length) return null;
   var total = agrega(regs), pilhas = !total.pecas && total.pilhas > 0;
-  var titulo = (cmd.tipo === 'defeitos' ? 'Defeitos' : 'Buy Off · Pintura') + (cmd.setor ? ' · ' + nomeSetor(cmd.setor) : '');
+  var titulo = tituloDe(cmd);
   var s = [], y = 0, W = LARG - 2 * MARGEM;
 
   s.push(svgTexto(MARGEM, 88, titulo, { t: 44, peso: 700 }));
@@ -607,8 +682,7 @@ function graficoRelatorio(cmd, registros) {
     '" font-family="Liberation Sans, DejaVu Sans, Arial, sans-serif">' + svgRet(0, 0, LARG, H, COR.fundo) + s.join('') + '</svg>';
   var html = '<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;background:#fff}' +
     'body{width:' + LARG + 'px;height:' + H + 'px;overflow:hidden}svg{display:block}</style></head><body>' + svg + '</body></html>';
-  var legenda = '📊 *' + titulo + '*\n_' + cmd.rotulo + '_\n' + linhaProducao(total) +
-    (total.refugo !== null ? ' · refugo ' + pct(total.refugo) : '');
+  var legenda = '📈 ' + titulo + ' · gráficos'; // os números vêm logo depois, no texto
   return { html: html, largura: LARG, altura: H, legenda: legenda };
 }
 
@@ -681,5 +755,5 @@ if (typeof module !== 'undefined' && module.exports) {
     somaDias: somaDias, diaDaSemana: diaDaSemana, agrega: agrega, filtrar: filtrar,
     faltando: faltando, lerAutorizados: lerAutorizados, autorizado: autorizado, semanaIso: semanaIso,
     graficoRelatorio: graficoRelatorio, teto: teto, controleSessao: controleSessao, textoSair: textoSair,
-    SESSAO_MINUTOS: SESSAO_MINUTOS };
+    menu: menu, SESSAO_MINUTOS: SESSAO_MINUTOS };
 }
