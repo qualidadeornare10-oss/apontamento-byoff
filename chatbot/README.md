@@ -44,7 +44,7 @@ O menu (lista `MENU` no `nucleo.js`) é respondido só com o número:
 | Número | Mesmo que |
 |---|---|
 | `1` Resumo de hoje | `hoje` |
-| `2` Resumo da semana | pergunta **qual semana**: `1` esta, `2` a passada, `3` escolher outra (o usuário digita o número da semana, ex. `45`, ou um dia dela, ex. `04/11`; até 52 semanas para trás). Cada pergunta espera a resposta por 10 min (`ETAPA_MINUTOS`) |
+| `2` Resumo semanal | pergunta **qual semana**: `1` esta, `2` a passada, `3` escolher outra (o usuário digita o número da semana, ex. `45`, ou um dia dela, ex. `04/11`; até 52 semanas para trás). Cada pergunta espera a resposta por 10 min (`ETAPA_MINUTOS`) |
 | `3` Quem ainda não lançou | `pendentes` |
 | `0` | volta ao menu |
 

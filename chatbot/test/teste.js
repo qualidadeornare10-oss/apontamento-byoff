@@ -62,7 +62,7 @@ t('0 é o menu e número fora do menu não é entendido', function () {
 });
 t('menu com as 3 opções', function () {
   assert.strictEqual(n.menu(false, false), '📊 *Buy Off · Pintura*\nEscolha uma opção:\n\n' +
-    '1️⃣ Resumo de hoje\n2️⃣ Resumo da semana\n3️⃣ Quem ainda não lançou\n\n' +
+    '1️⃣ Resumo de hoje\n2️⃣ Resumo semanal\n3️⃣ Quem ainda não lançou\n\n' +
     'Responda só com o número · *sair* para encerrar');
 });
 
@@ -70,7 +70,7 @@ t('menu com as 3 opções', function () {
 function semana(txt) { return n.interpretar(txt, HOJE, 'semana'); }
 t('pergunta qual semana com as datas', function () {
   var s = n.responder({ tipo: 'escolherSemana', grupo: false }, dados, HOJE);
-  assert.strictEqual(s, '📅 *Resumo da semana*\nQual semana?\n\n' +
+  assert.strictEqual(s, '📅 *Resumo semanal*\nQual semana?\n\n' +
     '1️⃣ Esta semana · 16/11 até hoje\n2️⃣ Semana passada · 09/11 a 15/11\n3️⃣ Escolher outra semana\n\n' +
     'Responda só com o número · *0* volta ao menu');
 });

@@ -21,7 +21,7 @@ var SETORES = [
 // null = pergunta antes qual semana (esta, a passada ou outra que o usuário digita).
 var MENU = [
   ['Resumo de hoje', 'hoje'],
-  ['Resumo da semana', null],
+  ['Resumo semanal', null],
   ['Quem ainda não lançou', 'pendentes']
 ];
 var SEMANAS_ATRAS = 52;     // até quantas semanas para trás dá para escolher
@@ -474,7 +474,7 @@ function menu(naoEntendi, grupo) {
 function textoEscolherSemana(naoEntendi, grupo, hoje) {
   var esta = cmdSemana(0, hoje), passada = cmdSemana(1, hoje);
   return (naoEntendi ? 'Não entendi 🤔\n\n' : '') +
-    '📅 *Resumo da semana*\nQual semana?\n\n' +
+    '📅 *Resumo semanal*\nQual semana?\n\n' +
     '1️⃣ Esta semana · ' + brCurto(esta.ini) + ' até hoje\n' +
     '2️⃣ Semana passada · ' + rotuloPeriodo(passada.ini, passada.fim, hoje) + '\n' +
     '3️⃣ Escolher outra semana\n\n' +
