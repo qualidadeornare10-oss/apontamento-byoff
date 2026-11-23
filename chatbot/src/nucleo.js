@@ -18,14 +18,14 @@ var SETORES = [
 ];
 
 // Menu numerado: o que cada número pede (o mesmo comando que dá para digitar).
-// null = pergunta antes qual semana (ver SEMANAS_OPCOES).
+// null = pergunta antes qual semana (esta, a passada ou outra que o usuário digita).
 var MENU = [
   ['Resumo de hoje', 'hoje'],
   ['Resumo da semana', null],
   ['Quem ainda não lançou', 'pendentes']
 ];
-var SEMANAS_OPCOES = 4;     // "Qual semana?": esta, a passada e mais duas para trás
-var ETAPA_MINUTOS = 10;     // quanto tempo o bot espera a resposta de "Qual semana?"
+var SEMANAS_ATRAS = 52;     // até quantas semanas para trás dá para escolher
+var ETAPA_MINUTOS = 10;     // quanto tempo o bot espera a resposta de uma pergunta
 var EMOJI_NUM = ['0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
 
 // Turnos em que cada setor deveria ter lançamento (para o aviso "Faltando lançamento").
@@ -136,16 +136,46 @@ function cmdSemana(k, hoje) {
 }
 
 /**
- * etapa = o que o bot perguntou por último nesta conversa ('semana' = "Qual semana?").
- * Com etapa, o número responde à pergunta; qualquer outra mensagem segue o caminho normal.
+ * Resposta a "Escolher outra semana": número da semana ("45", "s45", "semana 45") ou uma data ("10/11").
+ * Retorna o cmd da semana, { tipo: 'pedirSemana', erro } para perguntar de novo, ou null (não é resposta).
+ */
+function semanaDigitada(texto, hoje) {
+  var s = normaliza(texto).replace(/^[\/!#.]+/, '').replace(/[.!]+$/, '').replace(/^(semana|sem|s)\s*/, '').trim();
+  var k, m;
+  if (/^\d{1,2}$/.test(s)) {
+    var n = +s;
+    if (n < 1 || n > 53) return { tipo: 'pedirSemana', erro: 'Não existe semana ' + n + '.' };
+    for (k = 0; k <= SEMANAS_ATRAS; k++) if (semanaIso(somaDias(segundaDaSemana(hoje), -7 * k)) === n) return cmdSemana(k, hoje);
+    return { tipo: 'pedirSemana', erro: 'Não achei a semana ' + n + '.' };
+  }
+  if ((m = s.match(/^(\d{1,2})[\/.-](\d{1,2})(?:[\/.-](\d{2}|\d{4}))?$/))) {
+    var iso = lerData(m[1], m[2], m[3], hoje);
+    if (!iso) return { tipo: 'pedirSemana', erro: 'Data inválida: ' + s + '.' };
+    if (iso > hoje) return { tipo: 'pedirSemana', erro: 'A data ' + br(iso) + ' ainda não chegou.' };
+    k = Math.round((utc(segundaDaSemana(hoje)) - utc(segundaDaSemana(iso))) / (7 * 864e5));
+    if (k > SEMANAS_ATRAS) return { tipo: 'pedirSemana', erro: 'Escolha uma semana do último ano.' };
+    return cmdSemana(k, hoje);
+  }
+  return null;
+}
+
+/**
+ * etapa = o que o bot perguntou por último nesta conversa:
+ *   'semana'      → "Qual semana?" (1 esta, 2 a passada, 3 escolher outra)
+ *   'qualSemana'  → "Digite a semana" (número da semana ou uma data)
+ * Com etapa, a mensagem responde à pergunta; o que não for resposta segue o caminho normal.
  */
 function interpretar(texto, hoje, etapa) {
   // Número ("3", "/3", "3️⃣"); 0 = menu.
   var so = normaliza(texto).replace(/[️⃣]/g, '').replace(/^[\/!#.]+/, '').replace(/[.)!]+$/, '').trim();
+  if (so === '0') return { tipo: 'ajuda' };
+  if (etapa === 'qualSemana') { var sd = semanaDigitada(so, hoje); if (sd) return sd; }
   if (/^\d{1,2}$/.test(so)) {
     var op = +so;
-    if (op === 0) return { tipo: 'ajuda' };
-    if (etapa === 'semana') return op <= SEMANAS_OPCOES ? cmdSemana(op - 1, hoje) : { tipo: 'escolherSemana', naoEntendi: true };
+    if (etapa === 'semana') {
+      if (op === 1 || op === 2) return cmdSemana(op - 1, hoje);
+      return op === 3 ? { tipo: 'pedirSemana' } : { tipo: 'escolherSemana', naoEntendi: true };
+    }
     if (!MENU[op - 1]) return { tipo: 'ajuda', naoEntendi: true };
     return MENU[op - 1][1] ? interpretar(MENU[op - 1][1], hoje) : { tipo: 'escolherSemana' };
   }
@@ -440,18 +470,24 @@ function menu(naoEntendi, grupo) {
     (grupo ? 'Responda com barra e o número (ex.: */1*)' : 'Responda só com o número · *sair* para encerrar');
 }
 
-/** "Qual semana?": esta semana, a passada e as anteriores, com as datas. */
+/** "Qual semana?": esta semana, a passada (com as datas) ou escolher outra. */
 function textoEscolherSemana(naoEntendi, grupo, hoje) {
-  var l = [];
-  for (var k = 0; k < SEMANAS_OPCOES; k++) {
-    var c = cmdSemana(k, hoje);
-    var nome = k === 0 ? 'Esta semana' : k === 1 ? 'Semana passada' : 'Semana ' + semanaIso(c.ini);
-    var datas = k === 0 ? brCurto(c.ini) + ' até hoje' : rotuloPeriodo(c.ini, c.fim, hoje);
-    l.push(EMOJI_NUM[k + 1] + ' ' + nome + ' · ' + datas);
-  }
+  var esta = cmdSemana(0, hoje), passada = cmdSemana(1, hoje);
   return (naoEntendi ? 'Não entendi 🤔\n\n' : '') +
-    '📅 *Resumo da semana*\nQual semana?\n\n' + l.join('\n') + '\n\n' +
+    '📅 *Resumo da semana*\nQual semana?\n\n' +
+    '1️⃣ Esta semana · ' + brCurto(esta.ini) + ' até hoje\n' +
+    '2️⃣ Semana passada · ' + rotuloPeriodo(passada.ini, passada.fim, hoje) + '\n' +
+    '3️⃣ Escolher outra semana\n\n' +
     (grupo ? 'Responda com barra e o número (ex.: */1*) · */0* volta ao menu' : 'Responda só com o número · *0* volta ao menu');
+}
+
+/** "Escolher outra semana": pede o número da semana ou uma data. */
+function textoPedirSemana(erro, grupo, hoje) {
+  var b = grupo ? '/' : '';
+  return (erro ? '⚠️ ' + erro + '\n\n' : '') +
+    '📅 *Escolher semana*\nDigite o número da semana (ex.: *' + b + semanaIso(somaDias(hoje, -14)) + '*)\n' +
+    'ou um dia dela (ex.: *' + b + brCurto(somaDias(segundaDaSemana(hoje), -12)) + '*)\n\n' +
+    '_Esta é a semana ' + semanaIso(hoje) + '_ · *' + b + '0* volta ao menu';
 }
 
 function textoComandos() {
@@ -474,6 +510,7 @@ function rodape(cmd) {
 function responder(cmd, registros, hoje) {
   if (cmd.tipo === 'ajuda') return menu(cmd.naoEntendi, cmd.grupo === true);
   if (cmd.tipo === 'escolherSemana') return textoEscolherSemana(cmd.naoEntendi, cmd.grupo === true, hoje);
+  if (cmd.tipo === 'pedirSemana') return textoPedirSemana(cmd.erro, cmd.grupo === true, hoje);
   if (cmd.tipo === 'aviso') return cmd.msg;
   var texto;
   if (cmd.tipo === 'erro') texto = '⚠️ ' + cmd.msg;

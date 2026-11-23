@@ -71,18 +71,45 @@ function semana(txt) { return n.interpretar(txt, HOJE, 'semana'); }
 t('pergunta qual semana com as datas', function () {
   var s = n.responder({ tipo: 'escolherSemana', grupo: false }, dados, HOJE);
   assert.strictEqual(s, '📅 *Resumo da semana*\nQual semana?\n\n' +
-    '1️⃣ Esta semana · 16/11 até hoje\n2️⃣ Semana passada · 09/11 a 15/11\n3️⃣ Semana 45 · 02/11 a 08/11\n4️⃣ Semana 44 · 26/10 a 01/11\n\n' +
+    '1️⃣ Esta semana · 16/11 até hoje\n2️⃣ Semana passada · 09/11 a 15/11\n3️⃣ Escolher outra semana\n\n' +
     'Responda só com o número · *0* volta ao menu');
 });
 t('resposta da semana', function () {
   var c = semana('1'); assert.deepStrictEqual([c.tipo, c.ini, c.fim, c.quando], ['resumo', '2026-11-16', HOJE, 'da semana']);
   c = semana('2'); assert.deepStrictEqual([c.ini, c.fim, c.quando, c.rotulo], ['2026-11-09', '2026-11-15', 'da semana passada', 'Semana 46 · 09/11 a 15/11']);
-  c = semana('4️⃣'); assert.deepStrictEqual([c.ini, c.fim, c.quando], ['2026-10-26', '2026-11-01', 'da semana 44']);
+  assert.deepStrictEqual(semana('3️⃣'), { tipo: 'pedirSemana' });
 });
 t('na pergunta da semana: 0 volta ao menu, número inválido repergunta, texto segue normal', function () {
   assert.deepStrictEqual(semana('0'), { tipo: 'ajuda' });
-  assert.deepStrictEqual(semana('5'), { tipo: 'escolherSemana', naoEntendi: true });
+  assert.deepStrictEqual(semana('4'), { tipo: 'escolherSemana', naoEntendi: true });
   assert.strictEqual(semana('hoje').quando, 'de hoje');
+});
+
+// ---- "Escolher outra semana" -----------------------------------------------------
+function outra(txt) { return n.interpretar(txt, HOJE, 'qualSemana'); }
+t('pede o número da semana ou um dia', function () {
+  var s = n.responder({ tipo: 'pedirSemana', grupo: false }, dados, HOJE);
+  assert.strictEqual(s, '📅 *Escolher semana*\nDigite o número da semana (ex.: *45*)\nou um dia dela (ex.: *04/11*)\n\n' +
+    '_Esta é a semana 47_ · *0* volta ao menu');
+});
+t('semana pelo número', function () {
+  var c = outra('45'); assert.deepStrictEqual([c.tipo, c.ini, c.fim, c.quando], ['resumo', '2026-11-02', '2026-11-08', 'da semana 45']);
+  assert.strictEqual(outra('S44').ini, '2026-10-26');
+  assert.strictEqual(outra('semana 47').quando, 'da semana');
+  assert.strictEqual(outra('46').quando, 'da semana passada');
+  assert.strictEqual(outra('48').ini, '2025-11-24');      // semana 48 deste ano ainda não chegou: a do ano passado
+});
+t('semana pelo dia', function () {
+  var c = outra('04/11'); assert.deepStrictEqual([c.ini, c.fim], ['2026-11-02', '2026-11-08']);
+  assert.strictEqual(outra('17/11').quando, 'da semana');
+});
+t('semana inválida pergunta de novo', function () {
+  assert.ok(/Não existe semana 60/.test(outra('60').erro));
+  assert.ok(/ainda não chegou/.test(outra('25/12/2026').erro));
+  assert.strictEqual(outra('25/12').ini, '2025-12-22');  // sem ano: o 25/12 mais recente
+  assert.ok(/Data inválida/.test(outra('31/02').erro));
+  assert.deepStrictEqual(outra('0'), { tipo: 'ajuda' });
+  assert.strictEqual(outra('hoje').quando, 'de hoje');  // não é resposta: segue normal
 });
 t('semana escolhida tem gráfico e título certo', function () {
   var g = n.graficoRelatorio(semana('2'), dados);
@@ -294,9 +321,10 @@ t('workflows/buyoff-chatbot.json atualizado (rode node chatbot/build-workflow.js
 
 console.log((falhas ? '✗ ' : '✓ ') + ok + ' ok, ' + falhas + ' falha(s)');
 if (process.argv.indexOf('--mostrar') >= 0) {
-  ['relatorio', '1', '2', '2 → 2', '3', 'sair'].forEach(function (c) {
+  ['relatorio', '1', '2', '2 → 3', '2 → 3 → 45', '2 → 3 → 60', '3', 'sair'].forEach(function (c) {
     var k = c === 'relatorio' ? { tipo: 'ajuda' } : c === 'sair' ? { tipo: 'aviso', msg: n.textoSair() } :
-      c === '2 → 2' ? n.interpretar('2', HOJE, 'semana') : cmd(c);
+      c === '2 → 3' ? n.interpretar('3', HOJE, 'semana') :
+      c.indexOf('2 → 3 → ') === 0 ? n.interpretar(c.slice(8), HOJE, 'qualSemana') : cmd(c);
     k.grupo = false;
     console.log('\n──── ' + c + ' ────\n' + n.responder(k, dados, HOJE));
   });
