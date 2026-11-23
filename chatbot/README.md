@@ -37,17 +37,15 @@ Principais: Q73 Peça na cor errada (3)
 
 **Para começar, mande `relatorio`** (vale `Relatório`, `RELATORIO`, com ou sem acento). O bot responde com o menu e passa a atender aquela conversa. **Para encerrar, mande `sair`.** Ele também encerra sozinho depois de 30 minutos sem mensagens (`SESSAO_MINUTOS` no `nucleo.js`). Fora disso o bot fica em silêncio, então o número pode ser usado para conversar normalmente.
 
-Dá para ligar e pedir de uma vez: `relatorio 3` ou `relatorio semana ibotic`. O relatório automático das 07:00 não depende disso. Em grupo também não há liga/desliga: lá a barra (`/hoje`, `/1`) já indica que a mensagem é para o bot.
+Dá para ligar e pedir de uma vez: `relatorio 1` ou `relatorio semana ibotic`. O relatório automático das 07:00 não depende disso. Em grupo também não há liga/desliga: lá a barra (`/hoje`, `/1`) já indica que a mensagem é para o bot.
 
 O menu (lista `MENU` no `nucleo.js`) é respondido só com o número:
 
 | Número | Mesmo que |
 |---|---|
 | `1` Resumo de hoje | `hoje` |
-| `2` Resumo de ontem | `ontem` |
-| `3` Resumo da semana | `semana` |
-| `4` Defeitos da semana | `defeitos semana` |
-| `5` Quem ainda não lançou | `pendentes` |
+| `2` Resumo da semana | pergunta **qual semana**: `1` esta, `2` a passada, `3` e `4` as anteriores (`SEMANAS_OPCOES`). A pergunta espera a resposta por 10 min (`ETAPA_MINUTOS`) |
+| `3` Quem ainda não lançou | `pendentes` |
 | `0` | volta ao menu |
 
 Os comandos digitados continuam valendo (`mais` mostra os principais):

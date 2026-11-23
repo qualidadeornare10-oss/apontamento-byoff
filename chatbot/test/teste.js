@@ -45,24 +45,52 @@ t('rótulos curtos', function () {
 
 // ---- menu numerado -------------------------------------------------------------
 t('números do menu', function () {
-  var esperado = { '1': ['resumo', HOJE, HOJE], '2': ['resumo', '2026-11-16', '2026-11-16'], '3': ['resumo', '2026-11-16', HOJE],
-    '4': ['defeitos', '2026-11-16', HOJE], '5': ['pendentes', HOJE, HOJE] };
-  Object.keys(esperado).forEach(function (k) { var c = cmd(k); assert.deepStrictEqual([c.tipo, c.ini, c.fim], esperado[k], k); });
+  var c1 = cmd('1'), c3 = cmd('3');
+  assert.deepStrictEqual([c1.tipo, c1.ini, c1.fim], ['resumo', HOJE, HOJE]);
+  assert.deepStrictEqual(cmd('2'), { tipo: 'escolherSemana' });
+  assert.deepStrictEqual([c3.tipo, c3.ini], ['pendentes', HOJE]);
 });
 t('número com barra, ponto ou emoji', function () {
-  assert.strictEqual(cmd('/3').quando, 'da semana');
-  assert.strictEqual(cmd('3.').quando, 'da semana');
-  assert.strictEqual(cmd('3️⃣').quando, 'da semana');
-  assert.strictEqual(cmd(' 4 ').tipo, 'defeitos');
+  assert.strictEqual(cmd('/1').quando, 'de hoje');
+  assert.strictEqual(cmd('3.').tipo, 'pendentes');
+  assert.strictEqual(cmd('2️⃣').tipo, 'escolherSemana');
+  assert.strictEqual(cmd(' 3 ').tipo, 'pendentes');
 });
 t('0 é o menu e número fora do menu não é entendido', function () {
   assert.deepStrictEqual(cmd('0'), { tipo: 'ajuda' });
-  assert.ok(cmd('6').naoEntendi && cmd('99').naoEntendi);
+  assert.ok(cmd('4').naoEntendi && cmd('99').naoEntendi);
 });
-t('menu igual ao modelo', function () {
+t('menu com as 3 opções', function () {
   assert.strictEqual(n.menu(false, false), '📊 *Buy Off · Pintura*\nEscolha uma opção:\n\n' +
-    '1️⃣ Resumo de hoje\n2️⃣ Resumo de ontem\n3️⃣ Resumo da semana\n4️⃣ Defeitos da semana\n5️⃣ Quem ainda não lançou\n\n' +
+    '1️⃣ Resumo de hoje\n2️⃣ Resumo da semana\n3️⃣ Quem ainda não lançou\n\n' +
     'Responda só com o número · *sair* para encerrar');
+});
+
+// ---- "Qual semana?" ----------------------------------------------------------------
+function semana(txt) { return n.interpretar(txt, HOJE, 'semana'); }
+t('pergunta qual semana com as datas', function () {
+  var s = n.responder({ tipo: 'escolherSemana', grupo: false }, dados, HOJE);
+  assert.strictEqual(s, '📅 *Resumo da semana*\nQual semana?\n\n' +
+    '1️⃣ Esta semana · 16/11 até hoje\n2️⃣ Semana passada · 09/11 a 15/11\n3️⃣ Semana 45 · 02/11 a 08/11\n4️⃣ Semana 44 · 26/10 a 01/11\n\n' +
+    'Responda só com o número · *0* volta ao menu');
+});
+t('resposta da semana', function () {
+  var c = semana('1'); assert.deepStrictEqual([c.tipo, c.ini, c.fim, c.quando], ['resumo', '2026-11-16', HOJE, 'da semana']);
+  c = semana('2'); assert.deepStrictEqual([c.ini, c.fim, c.quando, c.rotulo], ['2026-11-09', '2026-11-15', 'da semana passada', 'Semana 46 · 09/11 a 15/11']);
+  c = semana('4️⃣'); assert.deepStrictEqual([c.ini, c.fim, c.quando], ['2026-10-26', '2026-11-01', 'da semana 44']);
+});
+t('na pergunta da semana: 0 volta ao menu, número inválido repergunta, texto segue normal', function () {
+  assert.deepStrictEqual(semana('0'), { tipo: 'ajuda' });
+  assert.deepStrictEqual(semana('5'), { tipo: 'escolherSemana', naoEntendi: true });
+  assert.strictEqual(semana('hoje').quando, 'de hoje');
+});
+t('semana escolhida tem gráfico e título certo', function () {
+  var g = n.graficoRelatorio(semana('2'), dados);
+  assert.ok(g && g.html.indexOf('Resumo da semana passada') >= 0);
+  assert.ok(/^📊 \*Resumo da semana passada\*\n_Semana 46 · 09\/11 a 15\/11_/.test(n.responder(semana('2'), dados, HOJE)));
+});
+t('menu em grupo e pergunta em grupo pedem barra', function () {
+  assert.ok(/\*\/1\*/.test(n.responder({ tipo: 'escolherSemana', grupo: true }, dados, HOJE)));
 });
 t('menu em grupo pede barra', function () { assert.ok(/\*\/1\*/.test(n.menu(false, true)) && !/sair/.test(n.menu(false, true))); });
 t('outros comandos', function () { assert.strictEqual(cmd('comandos').tipo, 'comandos'); assert.ok(/semana passada/.test(n.responder(cmd('mais'), [], HOJE))); });
@@ -167,9 +195,9 @@ t('mensagens de ligar e sair', function () {
   assert.ok(/encerrados/.test(n.responder({ tipo: 'aviso', msg: n.textoSair() })));
 });
 t('relatorio com número já responde a opção', function () {
-  var r = cs('relatorio 3', null);
-  assert.deepStrictEqual([r.acao, r.resto], ['abrir', '3']);
-  assert.strictEqual(cmd(r.resto).quando, 'da semana');
+  var r = cs('relatorio 2', null);
+  assert.deepStrictEqual([r.acao, r.resto], ['abrir', '2']);
+  assert.strictEqual(cmd(r.resto).tipo, 'escolherSemana');
 });
 
 // ---- painel de gráficos (foto) -------------------------------------------------
@@ -266,8 +294,9 @@ t('workflows/buyoff-chatbot.json atualizado (rode node chatbot/build-workflow.js
 
 console.log((falhas ? '✗ ' : '✓ ') + ok + ' ok, ' + falhas + ' falha(s)');
 if (process.argv.indexOf('--mostrar') >= 0) {
-  ['relatorio', '1', '2', '3', '4', '5', 'semana tagliabue', 'comandos', '9', 'sair'].forEach(function (c) {
-    var k = c === 'relatorio' ? { tipo: 'ajuda' } : c === 'sair' ? { tipo: 'aviso', msg: n.textoSair() } : cmd(c);
+  ['relatorio', '1', '2', '2 → 2', '3', 'sair'].forEach(function (c) {
+    var k = c === 'relatorio' ? { tipo: 'ajuda' } : c === 'sair' ? { tipo: 'aviso', msg: n.textoSair() } :
+      c === '2 → 2' ? n.interpretar('2', HOJE, 'semana') : cmd(c);
     k.grupo = false;
     console.log('\n──── ' + c + ' ────\n' + n.responder(k, dados, HOJE));
   });

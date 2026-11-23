@@ -17,14 +17,15 @@ var SETORES = [
   { id: 'madeirado-colorido', nome: 'MADEIRADO COLORIDO', curto: 'Madeirado Colorido', apelidos: ['madeirado colorido', 'madeirado-colorido', 'colorido'] }
 ];
 
-// Menu numerado: o que cada número pede (mesmos comandos que dá para digitar).
+// Menu numerado: o que cada número pede (o mesmo comando que dá para digitar).
+// null = pergunta antes qual semana (ver SEMANAS_OPCOES).
 var MENU = [
   ['Resumo de hoje', 'hoje'],
-  ['Resumo de ontem', 'ontem'],
-  ['Resumo da semana', 'semana'],
-  ['Defeitos da semana', 'defeitos semana'],
+  ['Resumo da semana', null],
   ['Quem ainda não lançou', 'pendentes']
 ];
+var SEMANAS_OPCOES = 4;     // "Qual semana?": esta, a passada e mais duas para trás
+var ETAPA_MINUTOS = 10;     // quanto tempo o bot espera a resposta de "Qual semana?"
 var EMOJI_NUM = ['0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
 
 // Turnos em que cada setor deveria ter lançamento (para o aviso "Faltando lançamento").
@@ -125,13 +126,28 @@ function lerData(dd, mm, aa, hoje) {
  * Retorna { tipo: 'ajuda' } ou { tipo: 'resumo'|'defeitos'|'pendentes', ini, fim, rotulo, setor }
  * ou { tipo: 'erro', msg }.
  */
-function interpretar(texto, hoje) {
-  // Número do menu ("3", "/3", "3️⃣"); 0 = menu.
+/** Resumo de uma semana inteira, k semanas para trás (0 = esta semana, até hoje). */
+function cmdSemana(k, hoje) {
+  var ini = somaDias(segundaDaSemana(hoje), -7 * k), fim = somaDias(ini, 6);
+  if (fim > hoje) fim = hoje;
+  return { tipo: 'resumo', ini: ini, fim: fim, setor: null,
+    quando: k === 0 ? 'da semana' : k === 1 ? 'da semana passada' : 'da semana ' + semanaIso(ini),
+    rotulo: 'Semana ' + semanaIso(ini) + ' · ' + rotuloPeriodo(ini, fim, hoje) };
+}
+
+/**
+ * etapa = o que o bot perguntou por último nesta conversa ('semana' = "Qual semana?").
+ * Com etapa, o número responde à pergunta; qualquer outra mensagem segue o caminho normal.
+ */
+function interpretar(texto, hoje, etapa) {
+  // Número ("3", "/3", "3️⃣"); 0 = menu.
   var so = normaliza(texto).replace(/[️⃣]/g, '').replace(/^[\/!#.]+/, '').replace(/[.)!]+$/, '').trim();
   if (/^\d{1,2}$/.test(so)) {
     var op = +so;
     if (op === 0) return { tipo: 'ajuda' };
-    return MENU[op - 1] ? interpretar(MENU[op - 1][1], hoje) : { tipo: 'ajuda', naoEntendi: true };
+    if (etapa === 'semana') return op <= SEMANAS_OPCOES ? cmdSemana(op - 1, hoje) : { tipo: 'escolherSemana', naoEntendi: true };
+    if (!MENU[op - 1]) return { tipo: 'ajuda', naoEntendi: true };
+    return MENU[op - 1][1] ? interpretar(MENU[op - 1][1], hoje) : { tipo: 'escolherSemana' };
   }
 
   var s = ' ' + normaliza(texto).replace(/^[\/!#.]+/, '') + ' ';
@@ -424,6 +440,20 @@ function menu(naoEntendi, grupo) {
     (grupo ? 'Responda com barra e o número (ex.: */1*)' : 'Responda só com o número · *sair* para encerrar');
 }
 
+/** "Qual semana?": esta semana, a passada e as anteriores, com as datas. */
+function textoEscolherSemana(naoEntendi, grupo, hoje) {
+  var l = [];
+  for (var k = 0; k < SEMANAS_OPCOES; k++) {
+    var c = cmdSemana(k, hoje);
+    var nome = k === 0 ? 'Esta semana' : k === 1 ? 'Semana passada' : 'Semana ' + semanaIso(c.ini);
+    var datas = k === 0 ? brCurto(c.ini) + ' até hoje' : rotuloPeriodo(c.ini, c.fim, hoje);
+    l.push(EMOJI_NUM[k + 1] + ' ' + nome + ' · ' + datas);
+  }
+  return (naoEntendi ? 'Não entendi 🤔\n\n' : '') +
+    '📅 *Resumo da semana*\nQual semana?\n\n' + l.join('\n') + '\n\n' +
+    (grupo ? 'Responda com barra e o número (ex.: */1*) · */0* volta ao menu' : 'Responda só com o número · *0* volta ao menu');
+}
+
 function textoComandos() {
   return '⌨️ *Outros comandos*\n\n' +
     '*semana passada* · *mes* · *mes passado*\n' +
@@ -443,6 +473,7 @@ function rodape(cmd) {
 /** Monta a resposta final. registros = lista devolvida pelo Apps Script (acao listar). */
 function responder(cmd, registros, hoje) {
   if (cmd.tipo === 'ajuda') return menu(cmd.naoEntendi, cmd.grupo === true);
+  if (cmd.tipo === 'escolherSemana') return textoEscolherSemana(cmd.naoEntendi, cmd.grupo === true, hoje);
   if (cmd.tipo === 'aviso') return cmd.msg;
   var texto;
   if (cmd.tipo === 'erro') texto = '⚠️ ' + cmd.msg;
@@ -755,5 +786,5 @@ if (typeof module !== 'undefined' && module.exports) {
     somaDias: somaDias, diaDaSemana: diaDaSemana, agrega: agrega, filtrar: filtrar,
     faltando: faltando, lerAutorizados: lerAutorizados, autorizado: autorizado, semanaIso: semanaIso,
     graficoRelatorio: graficoRelatorio, teto: teto, controleSessao: controleSessao, textoSair: textoSair,
-    menu: menu, SESSAO_MINUTOS: SESSAO_MINUTOS };
+    menu: menu, SESSAO_MINUTOS: SESSAO_MINUTOS, ETAPA_MINUTOS: ETAPA_MINUTOS };
 }
