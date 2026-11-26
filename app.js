@@ -9,7 +9,7 @@
   var LS_LANC = 'buyoff_chave_lancamento'; // localStorage: fica no aparelho do setor
   var SS_CTRL = 'buyoff_chave_controle';   // sessionStorage: some ao fechar a aba
 
-  // Piloto: 5 setores com um QR code único (o operador escolhe o setor no formulário).
+  // Piloto: 10 setores com um QR code único (o operador escolhe o setor no formulário).
   // Também dá para gerar um link com o setor já escolhido: .../#polimento&k=CHAVE
   // ops = sugestões de nome (planilha BuyOff - Relação de Nomes por Máquina); o campo aceita qualquer nome digitado.
   // cods = códigos Q que aparecem para o setor (tirados do Diário de Produção de papel de cada setor).
@@ -24,7 +24,17 @@
     {id:'madeirado-uv', nome:'MADEIRADO UV', ops:['Samuel de Jesus','Marcos'],
       cods:['Q1','Q65','Q66','Q79','Q81','Q88','Q92','Q94','Q95','Q96','Q99','Q147','Q201','Q202','Q206','Q207']},
     {id:'madeirado-colorido', nome:'MADEIRADO COLORIDO', ops:['Samuel de Jesus','Marcos'],
-      cods:['Q1','Q79','Q80','Q81','Q87','Q88','Q94','Q95','Q99','Q109','Q111','Q126','Q147','Q154']}
+      cods:['Q1','Q79','Q80','Q81','Q87','Q88','Q94','Q95','Q99','Q109','Q111','Q126','Q147','Q154']},
+    {id:'aspersul', nome:'ASPERSUL', ops:['Aparecido','Vinicius','Ronilson'],
+      cods:['Q1','Q73','Q77','Q88','Q94','Q95','Q99','Q147','Q177']},
+    {id:'aspersul-primer', nome:'ASPERSUL PRIMER', ops:['Victor','Wilhian','Carlos'],
+      cods:['Q1','Q94','Q95','Q96','Q99','Q147','Q166','Q201','Q202']},
+    {id:'lixacao-colorido', nome:'LIXAÇÃO COLORIDO', ops:['Maicon da Silva Souza','Cristiano da Silva Souza','Dhennyo Joyce Silva Santos Reis'],
+      cods:['Q1','Q72','Q86','Q94','Q95','Q99','Q118','Q120','Q126','Q147','Q156','Q157','Q170']},
+    {id:'lixacao-madeirado', nome:'LIXAÇÃO MADEIRADO', ops:['Vinicius Nunes Brito','Paulo'],
+      cods:['Q1','Q74','Q86','Q88','Q94','Q95','Q99','Q118','Q120','Q126','Q147']},
+    {id:'sputzza', nome:'SPUTZZA', ops:[],
+      cods:['Q1','Q72','Q73','Q81','Q88','Q94','Q95','Q120','Q179']}
   ];
   // Todos os códigos do piloto, em ordem numérica crescente (mesma lista e ordem do Code.gs;
   // cada código é uma coluna da planilha).
@@ -57,7 +67,9 @@
     ['Q154','Peça na pilha errada (outro acabamento)'],
     ['Q156','Peça batida do retrabalho'],
     ['Q157','Peça do retrabalho sem identificação'],
+    ['Q166','Montagem da pilha errada'],
     ['Q170','Limpeza da esteira Sputzza'],
+    ['Q177','Excesso de massa'],
     ['Q179','Etiqueta colocada do lado errado'],
     ['Q201','Risco na peça'],
     ['Q202','Marca da etiqueta na peça'],

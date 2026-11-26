@@ -128,11 +128,12 @@ function setor(txt) { return n.interpretar(txt, HOJE, { qual: 'setor', pendente:
 t('pergunta qual setor', function () {
   assert.strictEqual(n.responder({ tipo: 'escolherSetor', pendente: PEND_HOJE, grupo: false }, dados, HOJE),
     '🏭 *Qual setor?*\n_Resumo de hoje · ter, 17/11_\n\n' +
-    '0️⃣ Todos\n1️⃣ Tagliabue   2️⃣ IBOTIC   3️⃣ Polimento\n4️⃣ Madeirado UV   5️⃣ Madeirado Colorido\n\n' +
+    '0️⃣ Todos\n1️⃣ Tagliabue   2️⃣ IBOTIC\n3️⃣ Polimento   4️⃣ Madeirado UV\n5️⃣ Madeirado Colorido   6️⃣ Aspersul\n' +
+    '7️⃣ Aspersul Primer   8️⃣ Lixação Colorido\n9️⃣ Lixação Madeirado   🔟 Sputzza\n\n' +
     'Pode escolher mais de um (ex.: *1 3*)\n*menu* volta ao início');
 });
 t('0 ou todos = todos os setores', function () {
-  ['0', '0️⃣', 'todos', 'Todos', '1 2 3 4 5'].forEach(function (x) {
+  ['0', '0️⃣', 'todos', 'Todos', '1 2 3 4 5 6 7 8 9 10', '123456789 10'].forEach(function (x) {
     var c = setor(x); assert.deepStrictEqual([c.tipo, c.ini, c.setores], ['resumo', HOJE, null], x);
   });
 });
@@ -141,9 +142,20 @@ t('um ou vários setores', function () {
   ['1 3', '1,3', '1, 3', '1 e 3', '13', '3 1', '1️⃣ 3️⃣', '/1 3'].forEach(function (x) {
     assert.deepStrictEqual(setor(x).setores, ['tagliabue', 'polimento'], x);
   });
+  ['10', '🔟', '/10'].forEach(function (x) { assert.deepStrictEqual(setor(x).setores, ['sputzza'], x); });
+  assert.deepStrictEqual(setor('1 10').setores, ['tagliabue', 'sputzza']);
+  assert.deepStrictEqual(setor('6').setores, ['aspersul']);
 });
-t('setor inválido pergunta de novo; texto que não é resposta segue normal', function () {
-  var c = setor('7'); assert.deepStrictEqual([c.tipo, c.naoEntendi, c.pendente.quando], ['escolherSetor', true, 'de hoje']);
+t('novos setores pelo nome', function () {
+  assert.strictEqual(cmd('hoje aspersul').setor, 'aspersul');
+  assert.strictEqual(cmd('semana aspersul primer').setor, 'aspersul-primer');
+  assert.strictEqual(cmd('ontem primer').setor, 'aspersul-primer');
+  assert.strictEqual(cmd('semana lixação colorido').setor, 'lixacao-colorido');
+  assert.strictEqual(cmd('hoje lixa madeirado').setor, 'lixacao-madeirado');
+  assert.strictEqual(cmd('mes sputzza').setor, 'sputzza');
+  assert.strictEqual(cmd('ontem colorido').setor, 'madeirado-colorido');
+});
+t('texto que não é resposta segue normal', function () {
   assert.strictEqual(setor('menu').tipo, 'ajuda');
   assert.strictEqual(setor('semana').quando, 'da semana');
 });
@@ -190,7 +202,8 @@ t('faltando hoje', function () {
   var f = n.faltando(dados, HOJE);
   var m = {}; f.forEach(function (x) { m[x.setor] = x.turnos.join('+'); });
   assert.deepStrictEqual(m, { 'tagliabue': 'Noite', 'ibotic': 'Noite', 'polimento': 'Dia+Noite',
-    'madeirado-uv': 'Noite', 'madeirado-colorido': 'Dia+Noite' });
+    'madeirado-uv': 'Noite', 'madeirado-colorido': 'Dia+Noite', 'aspersul': 'Dia+Noite', 'aspersul-primer': 'Dia+Noite',
+    'lixacao-colorido': 'Dia+Noite', 'lixacao-madeirado': 'Dia+Noite', 'sputzza': 'Dia+Noite' });
 });
 t('ninguém faltando ontem', function () { assert.strictEqual(n.faltando(dados, '2026-11-16').length, 0); });
 
@@ -202,7 +215,7 @@ t('texto do resumo de hoje', function () {
   assert.ok(s.indexOf('• Madeirado UV · 4 ruins · 1 lançamento') >= 0, s);
   assert.ok(s.indexOf('• Polimento · _sem lançamento_') >= 0, s);
   assert.ok(s.indexOf('*Principais defeitos*\nQ72 Pintura escorrida · 12\nQ81 Pintura com impureza · 10\nQ1 Peça batida · 8') >= 0, s);
-  assert.ok(s.indexOf('⏳ *Ainda sem lançamento*\nNoite: Tagliabue, IBOTIC e Madeirado UV\nDia e noite: Polimento e Madeirado Colorido') >= 0, s);
+  assert.ok(s.indexOf('⏳ *Ainda sem lançamento*\nNoite: Tagliabue, IBOTIC e Madeirado UV\nDia e noite: Polimento, Madeirado Colorido, Aspersul, Aspersul Primer, Lixação Colorido, Lixação Madeirado e Sputzza') >= 0, s);
 });
 t('texto sem refugo nem produção', function () {
   ['hoje', 'ontem', 'semana', 'semana tagliabue', 'defeitos semana', 'mes'].forEach(function (c) {
@@ -315,7 +328,7 @@ t('gráfico só com pilhas não quebra', function () {
 t('gráfico sem refugo e produção em pilhas', function () {
   var h = n.graficoRelatorio(cmd('semana'), dados).html;
   assert.ok(!/efugo/.test(h), 'ainda fala de refugo');
-  assert.ok(h.indexOf('>15 pilhas<') >= 0 && h.indexOf('Produção · + 7.100 pç') >= 0, 'cartão de produção');
+  assert.ok(h.indexOf('>15 pilhas<') >= 0 && h.indexOf('Produção · + 9.100 pç') >= 0, 'cartão de produção');
   assert.ok(h.indexOf('>Produção por dia<') >= 0 && h.indexOf('>pilhas<') >= 0, 'gráfico por dia em pilhas');
   assert.ok(h.indexOf('>Principais defeitos<') >= 0, 'título dos defeitos sem parênteses');
 });

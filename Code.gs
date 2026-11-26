@@ -18,12 +18,13 @@
  *  - Fotos (opcionais, até 3): só JPEG, tamanho limitado, salvas numa pasta PRIVADA do Drive.
  */
 
-// Aba nova para o piloto de 5 setores: os códigos mudaram, então as colunas também.
-// As abas antigas ("Lançamentos", "Lançamentos IBOTIC" e "Lançamentos Piloto") ficam intactas como histórico.
-var ABA = 'Lançamentos Piloto 5 Setores';
+// Aba nova para o piloto de 10 setores: entraram códigos novos, então as colunas mudaram.
+// As abas antigas ("Lançamentos", "Lançamentos IBOTIC", "Lançamentos Piloto" e
+// "Lançamentos Piloto 5 Setores") ficam intactas como histórico.
+var ABA = 'Lançamentos Piloto 10 Setores';
 var TZ = 'America/Sao_Paulo';
 
-// Piloto: só estes 5 setores são aceitos (mesmos ids do app.js).
+// Piloto: só estes 10 setores são aceitos (mesmos ids do app.js).
 // cods = códigos Q aceitos em cada setor (os do Diário de Produção de papel do setor).
 var SETORES = {
   'tagliabue': { nome: 'TAGLIABUE',
@@ -35,7 +36,17 @@ var SETORES = {
   'madeirado-uv': { nome: 'MADEIRADO UV',
     cods: ['Q1','Q65','Q66','Q79','Q81','Q88','Q92','Q94','Q95','Q96','Q99','Q147','Q201','Q202','Q206','Q207'] },
   'madeirado-colorido': { nome: 'MADEIRADO COLORIDO',
-    cods: ['Q1','Q79','Q80','Q81','Q87','Q88','Q94','Q95','Q99','Q109','Q111','Q126','Q147','Q154'] }
+    cods: ['Q1','Q79','Q80','Q81','Q87','Q88','Q94','Q95','Q99','Q109','Q111','Q126','Q147','Q154'] },
+  'aspersul': { nome: 'ASPERSUL',
+    cods: ['Q1','Q73','Q77','Q88','Q94','Q95','Q99','Q147','Q177'] },
+  'aspersul-primer': { nome: 'ASPERSUL PRIMER',
+    cods: ['Q1','Q94','Q95','Q96','Q99','Q147','Q166','Q201','Q202'] },
+  'lixacao-colorido': { nome: 'LIXAÇÃO COLORIDO',
+    cods: ['Q1','Q72','Q86','Q94','Q95','Q99','Q118','Q120','Q126','Q147','Q156','Q157','Q170'] },
+  'lixacao-madeirado': { nome: 'LIXAÇÃO MADEIRADO',
+    cods: ['Q1','Q74','Q86','Q88','Q94','Q95','Q99','Q118','Q120','Q126','Q147'] },
+  'sputzza': { nome: 'SPUTZZA',
+    cods: ['Q1','Q72','Q73','Q81','Q88','Q94','Q95','Q120','Q179'] }
 };
 
 // Todos os códigos do piloto, em ordem numérica crescente (mesma lista e ordem do app.js).
@@ -69,7 +80,9 @@ var DEFEITOS = [
   ['Q154', 'Peça na pilha errada (outro acabamento)'],
   ['Q156', 'Peça batida do retrabalho'],
   ['Q157', 'Peça do retrabalho sem identificação'],
+  ['Q166', 'Montagem da pilha errada'],
   ['Q170', 'Limpeza da esteira Sputzza'],
+  ['Q177', 'Excesso de massa'],
   ['Q179', 'Etiqueta colocada do lado errado'],
   ['Q201', 'Risco na peça'],
   ['Q202', 'Marca da etiqueta na peça'],

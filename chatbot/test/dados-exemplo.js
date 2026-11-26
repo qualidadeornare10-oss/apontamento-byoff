@@ -3,7 +3,9 @@ function reg(id, data, setor, turno, producao, unidade, defeitos) {
   var ruins = 0;
   Object.keys(defeitos).forEach(function (k) { ruins += defeitos[k]; });
   var nomes = { 'tagliabue': 'TAGLIABUE', 'ibotic': 'IBOTIC', 'polimento': 'POLIMENTO',
-    'madeirado-uv': 'MADEIRADO UV', 'madeirado-colorido': 'MADEIRADO COLORIDO' };
+    'madeirado-uv': 'MADEIRADO UV', 'madeirado-colorido': 'MADEIRADO COLORIDO',
+    'aspersul': 'ASPERSUL', 'aspersul-primer': 'ASPERSUL PRIMER', 'lixacao-colorido': 'LIXAÇÃO COLORIDO',
+    'lixacao-madeirado': 'LIXAÇÃO MADEIRADO', 'sputzza': 'SPUTZZA' };
   return { id: id, criadoEm: data + 'T12:00:00.000Z', data: data, ano: 2026, semana: 0,
     setorNome: nomes[setor], setor: setor, turno: turno, operador: 'Operador Teste',
     producao: producao, unidade: unidade, ruins: ruins, defeitos: defeitos, obs: '', fotos: 0 };
@@ -25,6 +27,16 @@ module.exports = [
   reg('b8', '2026-11-16', 'madeirado-uv', 'Noite', 280, 'Peça', {}),
   reg('b9', '2026-11-16', 'madeirado-colorido', 'Dia', 250, 'Peça', { Q87: 4 }),
   reg('b10', '2026-11-16', 'madeirado-colorido', 'Noite', 240, 'Peça', { Q154: 1 }),
+  reg('b11', '2026-11-16', 'aspersul', 'Dia', 200, 'Peça', {}),
+  reg('b12', '2026-11-16', 'aspersul', 'Noite', 200, 'Peça', {}),
+  reg('b13', '2026-11-16', 'aspersul-primer', 'Dia', 200, 'Peça', {}),
+  reg('b14', '2026-11-16', 'aspersul-primer', 'Noite', 200, 'Peça', {}),
+  reg('b15', '2026-11-16', 'lixacao-colorido', 'Dia', 200, 'Peça', {}),
+  reg('b16', '2026-11-16', 'lixacao-colorido', 'Noite', 200, 'Peça', {}),
+  reg('b17', '2026-11-16', 'lixacao-madeirado', 'Dia', 200, 'Peça', {}),
+  reg('b18', '2026-11-16', 'lixacao-madeirado', 'Noite', 200, 'Peça', {}),
+  reg('b19', '2026-11-16', 'sputzza', 'Dia', 200, 'Peça', {}),
+  reg('b20', '2026-11-16', 'sputzza', 'Noite', 200, 'Peça', {}),
   // semana anterior (sexta 13/11) e outubro
   reg('c1', '2026-11-13', 'polimento', 'Dia', 500, 'Peça', { Q74: 10 }),
   reg('c2', '2026-10-30', 'ibotic', 'Noite', 600, 'Peça', { Q81: 6 }),

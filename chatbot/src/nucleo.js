@@ -14,7 +14,12 @@ var SETORES = [
   { id: 'ibotic', nome: 'IBOTIC', curto: 'IBOTIC', apelidos: ['ibotic'] },
   { id: 'polimento', nome: 'POLIMENTO', curto: 'Polimento', apelidos: ['polimento'] },
   { id: 'madeirado-uv', nome: 'MADEIRADO UV', curto: 'Madeirado UV', apelidos: ['madeirado uv', 'madeirado-uv', 'uv'] },
-  { id: 'madeirado-colorido', nome: 'MADEIRADO COLORIDO', curto: 'Madeirado Colorido', apelidos: ['madeirado colorido', 'madeirado-colorido', 'colorido'] }
+  { id: 'madeirado-colorido', nome: 'MADEIRADO COLORIDO', curto: 'Madeirado Colorido', apelidos: ['madeirado colorido', 'madeirado-colorido', 'colorido'] },
+  { id: 'aspersul', nome: 'ASPERSUL', curto: 'Aspersul', apelidos: ['aspersul'] },
+  { id: 'aspersul-primer', nome: 'ASPERSUL PRIMER', curto: 'Aspersul Primer', apelidos: ['aspersul primer', 'aspersul-primer', 'primer'] },
+  { id: 'lixacao-colorido', nome: 'LIXAÇÃO COLORIDO', curto: 'Lixação Colorido', apelidos: ['lixacao colorido', 'lixacao-colorido', 'lixa colorido'] },
+  { id: 'lixacao-madeirado', nome: 'LIXAÇÃO MADEIRADO', curto: 'Lixação Madeirado', apelidos: ['lixacao madeirado', 'lixacao-madeirado', 'lixa madeirado'] },
+  { id: 'sputzza', nome: 'SPUTZZA', curto: 'Sputzza', apelidos: ['sputzza', 'sputza'] }
 ];
 
 // Menu numerado: o que cada número pede (o mesmo comando que dá para digitar).
@@ -26,7 +31,7 @@ var MENU = [
 ];
 var SEMANAS_ATRAS = 52;     // até quantas semanas para trás dá para escolher
 var ETAPA_MINUTOS = 10;     // quanto tempo o bot espera a resposta de uma pergunta
-var EMOJI_NUM = ['0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
+var EMOJI_NUM = ['0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
 
 // Turnos em que cada setor deveria ter lançamento (para o aviso "Faltando lançamento").
 // Se um setor não trabalha à noite, deixe só ['Dia'].
@@ -35,7 +40,12 @@ var TURNOS_ESPERADOS = {
   'ibotic': ['Dia', 'Noite'],
   'polimento': ['Dia', 'Noite'],
   'madeirado-uv': ['Dia', 'Noite'],
-  'madeirado-colorido': ['Dia', 'Noite']
+  'madeirado-colorido': ['Dia', 'Noite'],
+  'aspersul': ['Dia', 'Noite'],
+  'aspersul-primer': ['Dia', 'Noite'],
+  'lixacao-colorido': ['Dia', 'Noite'],
+  'lixacao-madeirado': ['Dia', 'Noite'],
+  'sputzza': ['Dia', 'Noite']
 };
 
 // Mesma lista do Code.gs (o servidor devolve só o código; aqui fica a descrição).
@@ -50,7 +60,8 @@ var DEFEITOS = {
   Q118: 'Falta de bordo', Q120: 'Bordo aberto', Q126: 'Bordo quebrado',
   Q147: 'Falta de identificação (etiqueta)', Q154: 'Peça na pilha errada (outro acabamento)',
   Q156: 'Peça batida do retrabalho', Q157: 'Peça do retrabalho sem identificação',
-  Q170: 'Limpeza da esteira Sputzza', Q179: 'Etiqueta colocada do lado errado',
+  Q166: 'Montagem da pilha errada', Q170: 'Limpeza da esteira Sputzza', Q177: 'Excesso de massa',
+  Q179: 'Etiqueta colocada do lado errado',
   Q201: 'Risco na peça', Q202: 'Marca da etiqueta na peça', Q206: 'Marca do rolo', Q207: 'Peça queimada'
 };
 
@@ -168,7 +179,9 @@ function setoresDigitados(so) {
   if (!/^[\d\s,;+e\/.-]+$/.test(so)) return null;
   var nums = [];
   so.replace(/\be\b/g, ' ').split(/[^0-9]+/).filter(Boolean).forEach(function (d) {
-    d.split('').forEach(function (x) { nums.push(+x); }); // "13" = 1 e 3 (só há setores de 1 a 5)
+    // "10" = setor 10; "13" (não existe setor 13) = 1 e 3
+    if (+d <= SETORES.length) nums.push(+d);
+    else d.split('').forEach(function (x) { nums.push(+x); });
   });
   if (!nums.length) return null;
   if (nums.indexOf(0) >= 0) return { setores: null };
@@ -191,7 +204,7 @@ function perguntarSetor(pendente, naoEntendi) {
 function interpretar(texto, hoje, etapa) {
   var qual = typeof etapa === 'string' ? etapa : (etapa && etapa.qual) || null;
   // Número ("3", "/3", "3️⃣"); 0 = menu (na pergunta do setor, 0 = todos).
-  var so = normaliza(texto).replace(/[️⃣]/g, '').replace(/^[\/!#.]+/, '').replace(/[.)!]+$/, '').trim();
+  var so = normaliza(texto).replace(/🔟/g, '10').replace(/[️⃣]/g, '').replace(/^[\/!#.]+/, '').replace(/[.)!]+$/, '').trim();
   if (qual === 'setor' && etapa.pendente) {
     var rs = setoresDigitados(so);
     if (rs && rs.erro) return perguntarSetor(etapa.pendente, true);
@@ -524,10 +537,11 @@ function textoPedirSemana(erro, grupo, hoje) {
 /** "Qual setor?" antes de gerar o relatório (pendente = o relatório já escolhido). */
 function textoEscolherSetor(pendente, naoEntendi, grupo) {
   var op = SETORES.map(function (st, i) { return EMOJI_NUM[i + 1] + ' ' + st.curto; });
-  var b = grupo ? '/' : '';
+  var b = grupo ? '/' : '', linhas = [];
+  for (var i = 0; i < op.length; i += 2) linhas.push(op.slice(i, i + 2).join('   ')); // 2 por linha
   return (naoEntendi ? 'Não entendi 🤔\n\n' : '') +
     '🏭 *Qual setor?*\n_' + tituloBase(pendente) + ' · ' + pendente.rotulo + '_\n\n' +
-    EMOJI_NUM[0] + ' Todos\n' + op.slice(0, 3).join('   ') + '\n' + op.slice(3).join('   ') + '\n\n' +
+    EMOJI_NUM[0] + ' Todos\n' + linhas.join('\n') + '\n\n' +
     'Pode escolher mais de um (ex.: *' + b + '1 3*)\n*' + b + 'menu* volta ao início';
 }
 
@@ -537,7 +551,7 @@ function textoComandos() {
     '*17/11* · um dia\n' +
     '*10/11 a 16/11* · um período\n\n' +
     'Acrescente o setor para detalhar: *semana ibotic*, *ontem uv*\n' +
-    '_Setores: tagliabue, ibotic, polimento, uv, colorido_';
+    '_Setores: tagliabue, ibotic, polimento, uv, colorido, aspersul, primer, lixa colorido, lixa madeirado, sputzza_';
 }
 
 /** Rodapé das respostas na conversa (no relatório agendado, grupo é indefinido e não vai rodapé). */

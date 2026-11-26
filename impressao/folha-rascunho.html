@@ -26,8 +26,8 @@ tbody td.d { font-size: 9.6pt; font-weight: 500; line-height: 1.15; border-left:
 .rodape { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4mm; margin-top: 4mm; }
 .rodape .b, .obs .b { border: .3mm solid #111; margin-top: 1.4mm; }
 .rodape .b { height: 11mm; }
-.semprod { font-size: 10.5pt; font-weight: 600; align-self: end; height: 11mm; display: flex; align-items: center; line-height: 1.25; }
-.setor { font-size: 12pt; font-weight: 800; }
+.semprod { font-size: 10.5pt; font-weight: 600; align-self: end; height: 11mm; display: flex; align-items: center; line-height: 1.25; white-space: nowrap; }
+.setor { font-size: 12pt; font-weight: 800; white-space: nowrap; }
 .obs { margin-top: 3.5mm; flex: 1; display: flex; flex-direction: column; }
 .obs .b { flex: 1; }
 </style></head>
@@ -207,6 +207,177 @@ tbody td.d { font-size: 9.6pt; font-weight: 500; line-height: 1.15; border-left:
       <tr><td class="c">Q126</td><td class="d">Bordo quebrado</td><td></td><td></td></tr>
       <tr><td class="c">Q147</td><td class="d">Falta de identificação (etiqueta)</td><td></td><td></td></tr>
       <tr><td class="c">Q154</td><td class="d">Peça na pilha errada (outro acabamento)</td><td></td><td></td></tr>
+    </tbody>
+  </table>
+  <div class="rodape">
+    <div><span class="lbl">PRODUÇÃO DO DIA</span><div class="b"></div></div>
+    <div class="semprod">Contei por: &nbsp;☐ Peça &nbsp;&nbsp;☐ Pilha</div>
+    <div><span class="lbl">TOTAL DE PEÇAS RUINS</span><div class="b"></div></div>
+  </div>
+  <div class="obs"><span class="lbl">OBSERVAÇÕES</span><div class="b"></div></div>
+</div>
+<div class="page">
+  <header>
+    <div><div class="kicker">BUY OFF · PINTURA</div><h1>Rascunho do dia</h1></div>
+    <div class="inst">Marque um traço a cada defeito.<br>No fim do expediente, lance os<br>totais no sistema.</div>
+  </header>
+  <div class="campos">
+    <div class="campo"><span class="lbl">OPERADOR</span></div>
+    <div class="campo"><span class="lbl">SETOR</span><span class="setor">ASPERSUL</span></div>
+    <div class="campo"><span class="lbl">DATA</span></div>
+    <div class="campo"><span class="lbl">TURNO</span><span class="box">☐ Dia &nbsp;&nbsp;☐ Noite</span></div>
+  </div>
+  <table>
+    <colgroup><col class="c"><col class="d"><col><col class="t"></colgroup>
+    <thead><tr><th>CÓDIGO</th><th>DEFEITO</th><th>MARCAÇÕES (um traço por peça)</th><th class="t">TOTAL</th></tr></thead>
+    <tbody>
+      <tr><td class="c">Q1</td><td class="d">Peça batida</td><td></td><td></td></tr>
+      <tr><td class="c">Q73</td><td class="d">Peça na cor errada</td><td></td><td></td></tr>
+      <tr><td class="c">Q77</td><td class="d">Empapelamento incorreto</td><td></td><td></td></tr>
+      <tr><td class="c">Q88</td><td class="d">Marca de cola da lixa na peça</td><td></td><td></td></tr>
+      <tr><td class="c">Q94</td><td class="d">Buraco na peça</td><td></td><td></td></tr>
+      <tr><td class="c">Q95</td><td class="d">Preparação incorreta</td><td></td><td></td></tr>
+      <tr><td class="c">Q99</td><td class="d">Bordo descolado</td><td></td><td></td></tr>
+      <tr><td class="c">Q147</td><td class="d">Falta de identificação (etiqueta)</td><td></td><td></td></tr>
+      <tr><td class="c">Q177</td><td class="d">Excesso de massa</td><td></td><td></td></tr>
+    </tbody>
+  </table>
+  <div class="rodape">
+    <div><span class="lbl">PRODUÇÃO DO DIA</span><div class="b"></div></div>
+    <div class="semprod">Contei por: &nbsp;☐ Peça &nbsp;&nbsp;☐ Pilha</div>
+    <div><span class="lbl">TOTAL DE PEÇAS RUINS</span><div class="b"></div></div>
+  </div>
+  <div class="obs"><span class="lbl">OBSERVAÇÕES</span><div class="b"></div></div>
+</div>
+<div class="page">
+  <header>
+    <div><div class="kicker">BUY OFF · PINTURA</div><h1>Rascunho do dia</h1></div>
+    <div class="inst">Marque um traço a cada defeito.<br>No fim do expediente, lance os<br>totais no sistema.</div>
+  </header>
+  <div class="campos">
+    <div class="campo"><span class="lbl">OPERADOR</span></div>
+    <div class="campo"><span class="lbl">SETOR</span><span class="setor">ASPERSUL PRIMER</span></div>
+    <div class="campo"><span class="lbl">DATA</span></div>
+    <div class="campo"><span class="lbl">TURNO</span><span class="box">☐ Dia &nbsp;&nbsp;☐ Noite</span></div>
+  </div>
+  <table>
+    <colgroup><col class="c"><col class="d"><col><col class="t"></colgroup>
+    <thead><tr><th>CÓDIGO</th><th>DEFEITO</th><th>MARCAÇÕES (um traço por peça)</th><th class="t">TOTAL</th></tr></thead>
+    <tbody>
+      <tr><td class="c">Q1</td><td class="d">Peça batida</td><td></td><td></td></tr>
+      <tr><td class="c">Q94</td><td class="d">Buraco na peça</td><td></td><td></td></tr>
+      <tr><td class="c">Q95</td><td class="d">Preparação incorreta</td><td></td><td></td></tr>
+      <tr><td class="c">Q96</td><td class="d">Pintura com falha</td><td></td><td></td></tr>
+      <tr><td class="c">Q99</td><td class="d">Bordo descolado</td><td></td><td></td></tr>
+      <tr><td class="c">Q147</td><td class="d">Falta de identificação (etiqueta)</td><td></td><td></td></tr>
+      <tr><td class="c">Q166</td><td class="d">Montagem da pilha errada</td><td></td><td></td></tr>
+      <tr><td class="c">Q201</td><td class="d">Risco na peça</td><td></td><td></td></tr>
+      <tr><td class="c">Q202</td><td class="d">Marca da etiqueta na peça</td><td></td><td></td></tr>
+    </tbody>
+  </table>
+  <div class="rodape">
+    <div><span class="lbl">PRODUÇÃO DO DIA</span><div class="b"></div></div>
+    <div class="semprod">Contei por: &nbsp;☐ Peça &nbsp;&nbsp;☐ Pilha</div>
+    <div><span class="lbl">TOTAL DE PEÇAS RUINS</span><div class="b"></div></div>
+  </div>
+  <div class="obs"><span class="lbl">OBSERVAÇÕES</span><div class="b"></div></div>
+</div>
+<div class="page">
+  <header>
+    <div><div class="kicker">BUY OFF · PINTURA</div><h1>Rascunho do dia</h1></div>
+    <div class="inst">Marque um traço a cada defeito.<br>No fim do expediente, lance os<br>totais no sistema.</div>
+  </header>
+  <div class="campos">
+    <div class="campo"><span class="lbl">OPERADOR</span></div>
+    <div class="campo"><span class="lbl">SETOR</span><span class="setor">LIXAÇÃO COLORIDO</span></div>
+    <div class="campo"><span class="lbl">DATA</span></div>
+    <div class="campo"><span class="lbl">TURNO</span><span class="box">☐ Dia &nbsp;&nbsp;☐ Noite</span></div>
+  </div>
+  <table>
+    <colgroup><col class="c"><col class="d"><col><col class="t"></colgroup>
+    <thead><tr><th>CÓDIGO</th><th>DEFEITO</th><th>MARCAÇÕES (um traço por peça)</th><th class="t">TOTAL</th></tr></thead>
+    <tbody>
+      <tr><td class="c">Q1</td><td class="d">Peça batida</td><td></td><td></td></tr>
+      <tr><td class="c">Q72</td><td class="d">Pintura escorrida</td><td></td><td></td></tr>
+      <tr><td class="c">Q86</td><td class="d">Falta calafetação Paris</td><td></td><td></td></tr>
+      <tr><td class="c">Q94</td><td class="d">Buraco na peça</td><td></td><td></td></tr>
+      <tr><td class="c">Q95</td><td class="d">Preparação incorreta</td><td></td><td></td></tr>
+      <tr><td class="c">Q99</td><td class="d">Bordo descolado</td><td></td><td></td></tr>
+      <tr><td class="c">Q118</td><td class="d">Falta de bordo</td><td></td><td></td></tr>
+      <tr><td class="c">Q120</td><td class="d">Bordo aberto</td><td></td><td></td></tr>
+      <tr><td class="c">Q126</td><td class="d">Bordo quebrado</td><td></td><td></td></tr>
+      <tr><td class="c">Q147</td><td class="d">Falta de identificação (etiqueta)</td><td></td><td></td></tr>
+      <tr><td class="c">Q156</td><td class="d">Peça batida do retrabalho</td><td></td><td></td></tr>
+      <tr><td class="c">Q157</td><td class="d">Peça do retrabalho sem identificação</td><td></td><td></td></tr>
+      <tr><td class="c">Q170</td><td class="d">Limpeza da esteira Sputzza</td><td></td><td></td></tr>
+    </tbody>
+  </table>
+  <div class="rodape">
+    <div><span class="lbl">PRODUÇÃO DO DIA</span><div class="b"></div></div>
+    <div class="semprod">Contei por: &nbsp;☐ Peça &nbsp;&nbsp;☐ Pilha</div>
+    <div><span class="lbl">TOTAL DE PEÇAS RUINS</span><div class="b"></div></div>
+  </div>
+  <div class="obs"><span class="lbl">OBSERVAÇÕES</span><div class="b"></div></div>
+</div>
+<div class="page">
+  <header>
+    <div><div class="kicker">BUY OFF · PINTURA</div><h1>Rascunho do dia</h1></div>
+    <div class="inst">Marque um traço a cada defeito.<br>No fim do expediente, lance os<br>totais no sistema.</div>
+  </header>
+  <div class="campos">
+    <div class="campo"><span class="lbl">OPERADOR</span></div>
+    <div class="campo"><span class="lbl">SETOR</span><span class="setor">LIXAÇÃO MADEIRADO</span></div>
+    <div class="campo"><span class="lbl">DATA</span></div>
+    <div class="campo"><span class="lbl">TURNO</span><span class="box">☐ Dia &nbsp;&nbsp;☐ Noite</span></div>
+  </div>
+  <table>
+    <colgroup><col class="c"><col class="d"><col><col class="t"></colgroup>
+    <thead><tr><th>CÓDIGO</th><th>DEFEITO</th><th>MARCAÇÕES (um traço por peça)</th><th class="t">TOTAL</th></tr></thead>
+    <tbody>
+      <tr><td class="c">Q1</td><td class="d">Peça batida</td><td></td><td></td></tr>
+      <tr><td class="c">Q74</td><td class="d">Peça fora de tonalidade</td><td></td><td></td></tr>
+      <tr><td class="c">Q86</td><td class="d">Falta calafetação Paris</td><td></td><td></td></tr>
+      <tr><td class="c">Q88</td><td class="d">Marca de cola da lixa na peça</td><td></td><td></td></tr>
+      <tr><td class="c">Q94</td><td class="d">Buraco na peça</td><td></td><td></td></tr>
+      <tr><td class="c">Q95</td><td class="d">Preparação incorreta</td><td></td><td></td></tr>
+      <tr><td class="c">Q99</td><td class="d">Bordo descolado</td><td></td><td></td></tr>
+      <tr><td class="c">Q118</td><td class="d">Falta de bordo</td><td></td><td></td></tr>
+      <tr><td class="c">Q120</td><td class="d">Bordo aberto</td><td></td><td></td></tr>
+      <tr><td class="c">Q126</td><td class="d">Bordo quebrado</td><td></td><td></td></tr>
+      <tr><td class="c">Q147</td><td class="d">Falta de identificação (etiqueta)</td><td></td><td></td></tr>
+    </tbody>
+  </table>
+  <div class="rodape">
+    <div><span class="lbl">PRODUÇÃO DO DIA</span><div class="b"></div></div>
+    <div class="semprod">Contei por: &nbsp;☐ Peça &nbsp;&nbsp;☐ Pilha</div>
+    <div><span class="lbl">TOTAL DE PEÇAS RUINS</span><div class="b"></div></div>
+  </div>
+  <div class="obs"><span class="lbl">OBSERVAÇÕES</span><div class="b"></div></div>
+</div>
+<div class="page">
+  <header>
+    <div><div class="kicker">BUY OFF · PINTURA</div><h1>Rascunho do dia</h1></div>
+    <div class="inst">Marque um traço a cada defeito.<br>No fim do expediente, lance os<br>totais no sistema.</div>
+  </header>
+  <div class="campos">
+    <div class="campo"><span class="lbl">OPERADOR</span></div>
+    <div class="campo"><span class="lbl">SETOR</span><span class="setor">SPUTZZA</span></div>
+    <div class="campo"><span class="lbl">DATA</span></div>
+    <div class="campo"><span class="lbl">TURNO</span><span class="box">☐ Dia &nbsp;&nbsp;☐ Noite</span></div>
+  </div>
+  <table>
+    <colgroup><col class="c"><col class="d"><col><col class="t"></colgroup>
+    <thead><tr><th>CÓDIGO</th><th>DEFEITO</th><th>MARCAÇÕES (um traço por peça)</th><th class="t">TOTAL</th></tr></thead>
+    <tbody>
+      <tr><td class="c">Q1</td><td class="d">Peça batida</td><td></td><td></td></tr>
+      <tr><td class="c">Q72</td><td class="d">Pintura escorrida</td><td></td><td></td></tr>
+      <tr><td class="c">Q73</td><td class="d">Peça na cor errada</td><td></td><td></td></tr>
+      <tr><td class="c">Q81</td><td class="d">Pintura com impureza</td><td></td><td></td></tr>
+      <tr><td class="c">Q88</td><td class="d">Marca de cola da lixa na peça</td><td></td><td></td></tr>
+      <tr><td class="c">Q94</td><td class="d">Buraco na peça</td><td></td><td></td></tr>
+      <tr><td class="c">Q95</td><td class="d">Preparação incorreta</td><td></td><td></td></tr>
+      <tr><td class="c">Q120</td><td class="d">Bordo aberto</td><td></td><td></td></tr>
+      <tr><td class="c">Q179</td><td class="d">Etiqueta colocada do lado errado</td><td></td><td></td></tr>
     </tbody>
   </table>
   <div class="rodape">

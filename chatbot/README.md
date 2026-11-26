@@ -47,7 +47,7 @@ O menu (lista `MENU` no `nucleo.js`) é respondido só com o número:
 | `3` Quem ainda não lançou | o mesmo que `pendentes` |
 | `0` | volta ao menu |
 
-**Qual setor?** `0` (ou `todos`) = todos; um número de 1 a 5 = um setor; vários de uma vez com espaço, vírgula ou "e" (`1 3`, `1,3`, `1 e 3`). Com um setor só, o resumo mostra Dia × Noite e, na semana, cada dia. Nessa pergunta o `0` é "todos"; para voltar ao menu, mande `menu`. Cada pergunta espera a resposta por 10 min (`ETAPA_MINUTOS`).
+**Qual setor?** `0` (ou `todos`) = todos; um número de 1 a 10 = um setor; vários de uma vez com espaço, vírgula ou "e" (`1 3`, `1,3`, `1 e 3`). Com um setor só, o resumo mostra Dia × Noite e, na semana, cada dia. Nessa pergunta o `0` é "todos"; para voltar ao menu, mande `menu`. Cada pergunta espera a resposta por 10 min (`ETAPA_MINUTOS`).
 
 Os comandos digitados continuam valendo e vão direto, sem perguntar o setor (`mais` mostra os principais):
 
